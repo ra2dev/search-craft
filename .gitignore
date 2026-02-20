@@ -20,6 +20,9 @@
 # production
 /build
 
+# worktrees (isolated branches)
+.worktrees
+
 # misc
 .DS_Store
 *.pem
