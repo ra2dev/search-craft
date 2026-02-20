@@ -12,6 +12,7 @@ import {
   Send,
   Settings2,
   SquareTerminal,
+  Upload,
 } from "lucide-react"
 
 import { NavMain } from "@/components/layout/nav-main"
@@ -36,10 +37,21 @@ const data = {
   },
   navMain: [
     {
+      title: "Datasets",
+      url: "/datasets/upload",
+      icon: Upload,
+      isActive: true,
+      items: [
+        {
+          title: "Upload",
+          url: "/datasets/upload",
+        },
+      ],
+    },
+    {
       title: "Playground",
       url: "#",
       icon: SquareTerminal,
-      isActive: true,
       items: [
         {
           title: "History",
