@@ -28,7 +28,7 @@
 
 **Step 1: Add dependency**
 
-Run: `npm install @supabase/supabase-js`
+Run: `pnpm add @supabase/supabase-js`
 Expected: Package added.
 
 **Step 2: Create server client**
@@ -49,7 +49,7 @@ export function createServerSupabase() {
 **Step 3: Commit**
 
 ```bash
-git add package.json package-lock.json lib/supabase/server.ts
+git add package.json pnpm-lock.yaml lib/supabase/server.ts
 git commit -m "chore: add Supabase server client"
 ```
 
