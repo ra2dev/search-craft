@@ -18,9 +18,9 @@
 
 ---
 
-## Slice 1: Supabase client + Upload (dataset + documents)
+## Slice 1: Supabase client + Upload (dataset + documents) ✅ Done
 
-### Task 1: Add Supabase server client
+### Task 1: Add Supabase server client ✅
 
 **Files:**
 - Create: `lib/supabase/server.ts`
@@ -55,7 +55,7 @@ git commit -m "chore: add Supabase server client"
 
 ---
 
-### Task 2: Upload API — POST JSON array → dataset + documents
+### Task 2: Upload API — POST JSON array → dataset + documents ✅
 
 **Files:**
 - Create: `app/api/datasets/upload/route.ts`
@@ -81,7 +81,7 @@ git commit -m "feat: upload API — create dataset and documents from JSON"
 
 ---
 
-### Task 3: Upload UI — page to paste/upload JSON
+### Task 3: Upload UI — page to paste/upload JSON ✅
 
 **Files:**
 - Create: `app/(dashboard)/datasets/upload/page.tsx` (or under existing layout)
@@ -105,21 +105,21 @@ git commit -m "feat: upload UI — create dataset from JSON"
 
 ---
 
-## Slice 2: Search datasets (CRUD + list)
+## Slice 2: Search datasets (CRUD + list) ✅ Done
 
-### Task 4: List datasets API
+### Task 4: List datasets API ✅
 
 **Files:** Create `app/api/datasets/route.ts` — GET returns list of `datasets` (id, name, created_at). Use `createServerSupabase()`.
 
-### Task 5: List search configs for a dataset
+### Task 5: List search configs for a dataset ✅
 
 **Files:** Create `app/api/datasets/[id]/search-datasets/route.ts` — GET returns `search_datasets` for given dataset_id.
 
-### Task 6: Create search dataset API
+### Task 6: Create search dataset API ✅
 
 **Files:** Create `app/api/datasets/[id]/search-datasets/route.ts` — POST body: name, description_prompt, description_model, embedding_model, embedding_dimension (384|768|1536|3072). Insert into `search_datasets`; optionally seed `search_documents` (copy content from documents, no description/embedding yet). Set status = 'uploaded'.
 
-### Task 7: Search datasets UI
+### Task 7: Search datasets UI ✅
 
 **Files:** Pages/routes: list datasets; dataset detail with list of search configs; form to create search config (name, prompt, models, dimension). Wire to APIs above.
 
@@ -179,8 +179,8 @@ git commit -m "feat: upload UI — create dataset from JSON"
 
 ## Execution order
 
-1. Slice 1 (Tasks 1–3): Supabase client + Upload. Required before anything else.
-2. Slice 2 (Tasks 4–7): Search datasets CRUD.
+1. ✅ Slice 1 (Tasks 1–3): Supabase client + Upload. Required before anything else.
+2. ✅ Slice 2 (Tasks 4–7): Search datasets CRUD.
 3. Slice 3 (Tasks 8–9): Describe.
 4. Slice 4 (Tasks 10–11): Vectorize.
 5. Slice 5 (Tasks 12–13): Search.
