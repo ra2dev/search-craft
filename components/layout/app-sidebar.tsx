@@ -43,6 +43,10 @@ const data = {
       isActive: true,
       items: [
         {
+          title: "All datasets",
+          url: "/datasets",
+        },
+        {
           title: "Upload",
           url: "/datasets/upload",
         },
