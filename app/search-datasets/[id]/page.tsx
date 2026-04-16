@@ -32,10 +32,18 @@ type SearchDatasetDetail = {
   created_at: string;
   document_count: number;
   described_count: number;
+  vectorized_count: number;
 };
 
 type DescribeResult = {
   described_count: number;
+  failed_count: number;
+  total_pending: number;
+  failures?: Array<{ id: string; error: string }>;
+};
+
+type VectorizeResult = {
+  vectorized_count: number;
   failed_count: number;
   total_pending: number;
   failures?: Array<{ id: string; error: string }>;
@@ -63,6 +71,9 @@ export default function SearchDatasetDetailPage() {
   const [describing, setDescribing] = useState(false);
   const [describeError, setDescribeError] = useState<string | null>(null);
   const [describeResult, setDescribeResult] = useState<DescribeResult | null>(null);
+  const [vectorizing, setVectorizing] = useState(false);
+  const [vectorizeError, setVectorizeError] = useState<string | null>(null);
+  const [vectorizeResult, setVectorizeResult] = useState<VectorizeResult | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [documents, setDocuments] = useState<SearchDocumentPreview[]>([]);
@@ -109,6 +120,26 @@ export default function SearchDatasetDetailPage() {
     }
   }
 
+  async function handleRunVectorize() {
+    setVectorizing(true);
+    setVectorizeError(null);
+    setVectorizeResult(null);
+    try {
+      const res = await fetch(`/api/search-datasets/${id}/vectorize`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setVectorizeError(data.error ?? "Vectorize failed");
+        return;
+      }
+      setVectorizeResult(data as VectorizeResult);
+      await Promise.all([loadDetail(), loadDocuments()]);
+    } catch {
+      setVectorizeError("Network error");
+    } finally {
+      setVectorizing(false);
+    }
+  }
+
   async function handleDelete() {
     if (!detail) return;
     const confirmed = window.confirm(
@@ -135,6 +166,12 @@ export default function SearchDatasetDetailPage() {
     !!detail.description_prompt &&
     !!detail.description_model &&
     detail.document_count > detail.described_count;
+
+  const canVectorize =
+    detail != null &&
+    !!detail.embedding_model &&
+    !!detail.embedding_dimension &&
+    detail.document_count > detail.vectorized_count;
 
   return (
     <SidebarProvider>
@@ -207,7 +244,8 @@ export default function SearchDatasetDetailPage() {
                   </dd>
                   <dt className="text-muted-foreground">Documents</dt>
                   <dd>
-                    {detail.described_count} / {detail.document_count} described
+                    {detail.described_count} / {detail.document_count} described ·{" "}
+                    {detail.vectorized_count} / {detail.document_count} vectorized
                   </dd>
                 </dl>
               </section>
@@ -243,6 +281,50 @@ export default function SearchDatasetDetailPage() {
                         ))}
                         {describeResult.failures.length > 5 && (
                           <li>…and {describeResult.failures.length - 5} more</li>
+                        )}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </section>
+
+              <section className="space-y-3">
+                <h2 className="text-lg font-semibold">Vectorize</h2>
+                {!detail.embedding_model || !detail.embedding_dimension ? (
+                  <p className="text-sm text-muted-foreground">
+                    This search config is missing an embedding model or dimension, so vectorize cannot run.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Embeds content{detail.described_count > 0 ? " + description" : ""} with{" "}
+                    <span className="font-mono">{detail.embedding_model}</span> at{" "}
+                    {detail.embedding_dimension}d for each document that doesn&apos;t yet have an
+                    embedding.
+                  </p>
+                )}
+                <Button onClick={handleRunVectorize} disabled={!canVectorize || vectorizing}>
+                  {vectorizing ? "Running vectorize…" : "Run vectorize"}
+                </Button>
+                {vectorizeError && <p className="text-sm text-destructive">{vectorizeError}</p>}
+                {vectorizeResult && (
+                  <div className="text-sm">
+                    <p>
+                      Vectorized {vectorizeResult.vectorized_count} of {vectorizeResult.total_pending}{" "}
+                      pending document(s)
+                      {vectorizeResult.failed_count > 0
+                        ? `, ${vectorizeResult.failed_count} failed`
+                        : ""}
+                      .
+                    </p>
+                    {vectorizeResult.failures && vectorizeResult.failures.length > 0 && (
+                      <ul className="mt-2 list-disc pl-5 text-destructive">
+                        {vectorizeResult.failures.slice(0, 5).map((f) => (
+                          <li key={f.id}>
+                            {f.id.slice(0, 8)}: {f.error}
+                          </li>
+                        ))}
+                        {vectorizeResult.failures.length > 5 && (
+                          <li>…and {vectorizeResult.failures.length - 5} more</li>
                         )}
                       </ul>
                     )}

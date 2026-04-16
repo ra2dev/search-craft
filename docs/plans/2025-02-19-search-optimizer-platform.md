@@ -137,13 +137,13 @@ git commit -m "feat: upload UI — create dataset from JSON"
 
 ---
 
-## Slice 4: Vectorize (embeddings)
+## Slice 4: Vectorize (embeddings) ✅ Done
 
-### Task 10: Vectorize API / job
+### Task 10: Vectorize API / job ✅
 
 **Files:** Create `app/api/search-datasets/[id]/vectorize/route.ts`. For each `search_document`, embed (content + description) with configured embedding_model; write to the correct `embedding_*` column per `search_datasets.embedding_dimension`. Update status to 'vectorized'.
 
-### Task 11: Vectorize UI
+### Task 11: Vectorize UI ✅
 
 **Files:** Button "Run vectorize" on search-dataset detail; call vectorize API; show success.
 
@@ -182,7 +182,7 @@ git commit -m "feat: upload UI — create dataset from JSON"
 1. ✅ Slice 1 (Tasks 1–3): Supabase client + Upload. Required before anything else.
 2. ✅ Slice 2 (Tasks 4–7): Search datasets CRUD.
 3. ✅ Slice 3 (Tasks 8–9): Describe.
-4. Slice 4 (Tasks 10–11): Vectorize.
+4. ✅ Slice 4 (Tasks 10–11): Vectorize.
 5. Slice 5 (Tasks 12–13): Search.
 6. Slice 6 (Tasks 14–16): Validation.
 

@@ -3,6 +3,13 @@ import { createServerSupabase } from "@/lib/supabase/server";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
+const EMBEDDING_COLUMNS: Record<number, string> = {
+  384: "embedding_384",
+  768: "embedding_768",
+  1536: "embedding_1536",
+  3072: "embedding_3072",
+};
+
 export async function GET(_request: Request, context: RouteContext) {
   const { id } = await context.params;
   const supabase = createServerSupabase();
@@ -19,7 +26,11 @@ export async function GET(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: error?.message ?? "Not found" }, { status: 404 });
   }
 
-  const [{ count: totalCount }, { count: describedCount }] = await Promise.all([
+  const embeddingColumn = searchDataset.embedding_dimension
+    ? EMBEDDING_COLUMNS[searchDataset.embedding_dimension]
+    : null;
+
+  const [totalRes, describedRes, vectorizedRes] = await Promise.all([
     supabase
       .from("search_documents")
       .select("id", { count: "exact", head: true })
@@ -29,12 +40,20 @@ export async function GET(_request: Request, context: RouteContext) {
       .select("id", { count: "exact", head: true })
       .eq("search_dataset_id", id)
       .not("description", "is", null),
+    embeddingColumn
+      ? supabase
+          .from("search_documents")
+          .select("id", { count: "exact", head: true })
+          .eq("search_dataset_id", id)
+          .not(embeddingColumn, "is", null)
+      : Promise.resolve({ count: 0 }),
   ]);
 
   return NextResponse.json({
     ...searchDataset,
-    document_count: totalCount ?? 0,
-    described_count: describedCount ?? 0,
+    document_count: totalRes.count ?? 0,
+    described_count: describedRes.count ?? 0,
+    vectorized_count: vectorizedRes.count ?? 0,
   });
 }
 
