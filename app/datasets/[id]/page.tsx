@@ -69,10 +69,12 @@ export default function DatasetDetailPage() {
   const [deletingSearchId, setDeletingSearchId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const [formName, setFormName] = useState("");
-  const [formPrompt, setFormPrompt] = useState("");
-  const [formDescModel, setFormDescModel] = useState("");
-  const [formEmbedModel, setFormEmbedModel] = useState("");
+  const [formName, setFormName] = useState("Emoji search");
+  const [formPrompt, setFormPrompt] = useState(
+    "You are given an emoji and its unicode name. Write a concise, search-friendly description (1-2 sentences) covering the emoji's common meanings, feelings, contexts, and synonyms people might type when searching for it. Do not repeat the unicode name verbatim; expand on it."
+  );
+  const [formDescModel, setFormDescModel] = useState("gpt-4o-mini");
+  const [formEmbedModel, setFormEmbedModel] = useState("text-embedding-3-small");
   const [formDimension, setFormDimension] = useState<number>(1536);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -334,11 +336,13 @@ export default function DatasetDetailPage() {
                       </div>
                       <div className="space-y-1">
                         <label htmlFor="prompt" className="text-sm font-medium">Description prompt</label>
-                        <Input
+                        <textarea
                           id="prompt"
                           value={formPrompt}
                           onChange={(e) => setFormPrompt(e.target.value)}
                           placeholder="Optional"
+                          rows={4}
+                          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                         />
                       </div>
                       <div className="space-y-1">

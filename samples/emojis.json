@@ -1,0 +1,82 @@
+[
+  {
+    "content": "😀 grinning face",
+    "metadata": { "emoji": "😀", "name": "grinning face", "category": "smileys", "unicode": "U+1F600" }
+  },
+  {
+    "content": "😂 face with tears of joy",
+    "metadata": { "emoji": "😂", "name": "face with tears of joy", "category": "smileys", "unicode": "U+1F602" }
+  },
+  {
+    "content": "🥲 smiling face with tear",
+    "metadata": { "emoji": "🥲", "name": "smiling face with tear", "category": "smileys", "unicode": "U+1F972" }
+  },
+  {
+    "content": "😢 crying face",
+    "metadata": { "emoji": "😢", "name": "crying face", "category": "smileys", "unicode": "U+1F622" }
+  },
+  {
+    "content": "🤔 thinking face",
+    "metadata": { "emoji": "🤔", "name": "thinking face", "category": "smileys", "unicode": "U+1F914" }
+  },
+  {
+    "content": "😴 sleeping face",
+    "metadata": { "emoji": "😴", "name": "sleeping face", "category": "smileys", "unicode": "U+1F634" }
+  },
+  {
+    "content": "❤️ red heart",
+    "metadata": { "emoji": "❤️", "name": "red heart", "category": "symbols", "unicode": "U+2764 U+FE0F" }
+  },
+  {
+    "content": "🔥 fire",
+    "metadata": { "emoji": "🔥", "name": "fire", "category": "nature", "unicode": "U+1F525" }
+  },
+  {
+    "content": "✨ sparkles",
+    "metadata": { "emoji": "✨", "name": "sparkles", "category": "symbols", "unicode": "U+2728" }
+  },
+  {
+    "content": "🎉 party popper",
+    "metadata": { "emoji": "🎉", "name": "party popper", "category": "activities", "unicode": "U+1F389" }
+  },
+  {
+    "content": "🚀 rocket",
+    "metadata": { "emoji": "🚀", "name": "rocket", "category": "travel", "unicode": "U+1F680" }
+  },
+  {
+    "content": "👍 thumbs up",
+    "metadata": { "emoji": "👍", "name": "thumbs up", "category": "people", "unicode": "U+1F44D" }
+  },
+  {
+    "content": "🙏 folded hands",
+    "metadata": { "emoji": "🙏", "name": "folded hands", "category": "people", "unicode": "U+1F64F" }
+  },
+  {
+    "content": "💡 light bulb",
+    "metadata": { "emoji": "💡", "name": "light bulb", "category": "objects", "unicode": "U+1F4A1" }
+  },
+  {
+    "content": "💻 laptop",
+    "metadata": { "emoji": "💻", "name": "laptop", "category": "objects", "unicode": "U+1F4BB" }
+  },
+  {
+    "content": "🍕 pizza",
+    "metadata": { "emoji": "🍕", "name": "pizza", "category": "food", "unicode": "U+1F355" }
+  },
+  {
+    "content": "🎂 birthday cake",
+    "metadata": { "emoji": "🎂", "name": "birthday cake", "category": "food", "unicode": "U+1F382" }
+  },
+  {
+    "content": "🐶 dog face",
+    "metadata": { "emoji": "🐶", "name": "dog face", "category": "animals", "unicode": "U+1F436" }
+  },
+  {
+    "content": "🐱 cat face",
+    "metadata": { "emoji": "🐱", "name": "cat face", "category": "animals", "unicode": "U+1F431" }
+  },
+  {
+    "content": "⚽ soccer ball",
+    "metadata": { "emoji": "⚽", "name": "soccer ball", "category": "activities", "unicode": "U+26BD" }
+  }
+]
