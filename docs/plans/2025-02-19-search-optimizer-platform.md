@@ -125,13 +125,13 @@ git commit -m "feat: upload UI — create dataset from JSON"
 
 ---
 
-## Slice 3: Describe (LLM)
+## Slice 3: Describe (LLM) ✅ Done
 
-### Task 8: Describe API / job
+### Task 8: Describe API / job ✅
 
 **Files:** Create `app/api/search-datasets/[id]/describe/route.ts` (or background job). For each `search_document` with null description, call LLM with `description_prompt` + document content; write description to `search_documents.description`. Update `search_datasets.status` to 'described' when done.
 
-### Task 9: Describe UI
+### Task 9: Describe UI ✅
 
 **Files:** Button or action on search-dataset detail to "Run describe"; call describe API; show progress or success.
 
@@ -181,7 +181,7 @@ git commit -m "feat: upload UI — create dataset from JSON"
 
 1. ✅ Slice 1 (Tasks 1–3): Supabase client + Upload. Required before anything else.
 2. ✅ Slice 2 (Tasks 4–7): Search datasets CRUD.
-3. Slice 3 (Tasks 8–9): Describe.
+3. ✅ Slice 3 (Tasks 8–9): Describe.
 4. Slice 4 (Tasks 10–11): Vectorize.
 5. Slice 5 (Tasks 12–13): Search.
 6. Slice 6 (Tasks 14–16): Validation.

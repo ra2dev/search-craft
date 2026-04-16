@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Breadcrumb,
@@ -12,6 +12,11 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -20,6 +25,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { ChevronRight, Trash2 } from "lucide-react";
 
 type SearchDataset = {
   id: string;
@@ -32,15 +38,36 @@ type SearchDataset = {
   created_at: string;
 };
 
+type DocumentPreview = {
+  id: string;
+  content: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+};
+
+type DocumentsResponse = {
+  total: number;
+  documents: DocumentPreview[];
+};
+
+const PREVIEW_LIMIT = 20;
+
 const DIMENSIONS = [384, 768, 1536, 3072] as const;
 
 export default function DatasetDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params.id as string;
   const [datasetName, setDatasetName] = useState<string | null>(null);
   const [searchDatasets, setSearchDatasets] = useState<SearchDataset[]>([]);
+  const [documents, setDocuments] = useState<DocumentPreview[]>([]);
+  const [documentsTotal, setDocumentsTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [deletingDataset, setDeletingDataset] = useState(false);
+  const [deletingSearchId, setDeletingSearchId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [formName, setFormName] = useState("");
   const [formPrompt, setFormPrompt] = useState("");
@@ -61,15 +88,67 @@ export default function DatasetDetailPage() {
     Promise.all([
       fetch("/api/datasets").then((res) => res.json()),
       fetch(`/api/datasets/${id}/search-datasets`).then((res) => (res.ok ? res.json() : [])),
+      fetch(`/api/datasets/${id}/documents?limit=${PREVIEW_LIMIT}`).then((res) =>
+        res.ok ? res.json() : { total: 0, documents: [] }
+      ),
     ])
-      .then(([datasets, searchConfigs]: [Array<{ id: string; name: string }>, SearchDataset[]]) => {
-        const ds = datasets.find((d: { id: string }) => d.id === id);
-        setDatasetName(ds?.name ?? id);
-        setSearchDatasets(searchConfigs);
-      })
+      .then(
+        ([datasets, searchConfigs, docsResponse]: [
+          Array<{ id: string; name: string }>,
+          SearchDataset[],
+          DocumentsResponse,
+        ]) => {
+          const ds = datasets.find((d: { id: string }) => d.id === id);
+          setDatasetName(ds?.name ?? id);
+          setSearchDatasets(searchConfigs);
+          setDocuments(docsResponse.documents ?? []);
+          setDocumentsTotal(docsResponse.total ?? 0);
+        }
+      )
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"))
       .finally(() => setLoading(false));
   }, [id]);
+
+  async function handleDeleteDataset() {
+    const confirmed = window.confirm(
+      `Delete dataset "${datasetName ?? id}"? This will also delete its documents, search configs, and validation sets. This cannot be undone.`
+    );
+    if (!confirmed) return;
+    setDeletingDataset(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/datasets/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? res.statusText);
+      }
+      router.push("/datasets");
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete");
+      setDeletingDataset(false);
+    }
+  }
+
+  async function handleDeleteSearchDataset(sd: SearchDataset) {
+    const confirmed = window.confirm(
+      `Delete search config "${sd.name}"? This will also delete its search documents and validation sets. This cannot be undone.`
+    );
+    if (!confirmed) return;
+    setDeletingSearchId(sd.id);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/search-datasets/${sd.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? res.statusText);
+      }
+      setSearchDatasets((prev) => prev.filter((s) => s.id !== sd.id));
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete");
+    } finally {
+      setDeletingSearchId(null);
+    }
+  }
 
   async function handleCreateSearchConfig(e: React.FormEvent) {
     e.preventDefault();
@@ -144,6 +223,64 @@ export default function DatasetDetailPage() {
 
           {!loading && !error && (
             <>
+              <section className="flex items-center justify-between gap-3">
+                <h1 className="text-xl font-semibold truncate">{datasetName ?? id}</h1>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDeleteDataset}
+                  disabled={deletingDataset}
+                  className="text-destructive"
+                >
+                  <Trash2 className="mr-2 size-4" />
+                  {deletingDataset ? "Deleting…" : "Delete dataset"}
+                </Button>
+              </section>
+              {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
+
+              <section>
+                <div className="mb-3 flex items-baseline justify-between">
+                  <h2 className="text-lg font-semibold">Data</h2>
+                  <span className="text-xs text-muted-foreground">
+                    {documentsTotal === 0
+                      ? "No documents"
+                      : `Showing ${documents.length} of ${documentsTotal.toLocaleString()}`}
+                  </span>
+                </div>
+                {documents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No documents in this dataset.</p>
+                ) : (
+                  <div className="overflow-hidden rounded-lg border">
+                    <div className="max-h-80 overflow-auto">
+                      <table className="w-full text-sm">
+                        <thead className="sticky top-0 bg-muted/50 text-xs uppercase text-muted-foreground">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium">Content</th>
+                            <th className="px-3 py-2 text-left font-medium">Metadata</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {documents.map((doc) => (
+                            <tr key={doc.id} className="border-t align-top">
+                              <td className="max-w-md px-3 py-2">
+                                <span className="line-clamp-3 whitespace-pre-wrap break-words">
+                                  {doc.content}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                                {doc.metadata && Object.keys(doc.metadata).length > 0
+                                  ? JSON.stringify(doc.metadata)
+                                  : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </section>
+
               <section>
                 <h2 className="text-lg font-semibold mb-3">Search configs</h2>
                 {searchDatasets.length === 0 ? (
@@ -152,79 +289,97 @@ export default function DatasetDetailPage() {
                   <ul className="space-y-2">
                     {searchDatasets.map((sd) => (
                       <li key={sd.id}>
-                        <Link
-                          href={`/search-datasets/${sd.id}`}
-                          className="block rounded-lg border p-3 hover:bg-muted/50"
-                        >
-                          <span className="font-medium">{sd.name}</span>
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            {sd.embedding_model} · {sd.embedding_dimension}d · {sd.status}
-                          </span>
-                        </Link>
+                        <div className="flex items-center gap-2 rounded-lg border p-3 hover:bg-muted/50">
+                          <Link
+                            href={`/search-datasets/${sd.id}`}
+                            className="flex-1 min-w-0"
+                          >
+                            <span className="font-medium">{sd.name}</span>
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              {sd.embedding_model} · {sd.embedding_dimension}d · {sd.status}
+                            </span>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Delete search config ${sd.name}`}
+                            disabled={deletingSearchId === sd.id}
+                            onClick={() => handleDeleteSearchDataset(sd)}
+                          >
+                            <Trash2 className="size-4 text-destructive" />
+                          </Button>
+                        </div>
                       </li>
                     ))}
                   </ul>
                 )}
               </section>
 
-              <section>
-                <h2 className="text-lg font-semibold mb-3">Create search config</h2>
-                <form onSubmit={handleCreateSearchConfig} className="flex flex-col gap-3 max-w-md">
-                  <div className="space-y-1">
-                    <label htmlFor="name" className="text-sm font-medium">Name</label>
-                    <Input
-                      id="name"
-                      value={formName}
-                      onChange={(e) => setFormName(e.target.value)}
-                      placeholder="e.g. Emoji GPT-4"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label htmlFor="prompt" className="text-sm font-medium">Description prompt</label>
-                    <Input
-                      id="prompt"
-                      value={formPrompt}
-                      onChange={(e) => setFormPrompt(e.target.value)}
-                      placeholder="Optional"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label htmlFor="descModel" className="text-sm font-medium">Description model</label>
-                    <Input
-                      id="descModel"
-                      value={formDescModel}
-                      onChange={(e) => setFormDescModel(e.target.value)}
-                      placeholder="e.g. gpt-4o-mini"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label htmlFor="embedModel" className="text-sm font-medium">Embedding model</label>
-                    <Input
-                      id="embedModel"
-                      value={formEmbedModel}
-                      onChange={(e) => setFormEmbedModel(e.target.value)}
-                      placeholder="e.g. text-embedding-3-small"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label htmlFor="dimension" className="text-sm font-medium">Embedding dimension</label>
-                    <select
-                      id="dimension"
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                      value={formDimension}
-                      onChange={(e) => setFormDimension(Number(e.target.value))}
-                    >
-                      {DIMENSIONS.map((d) => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {formError && <p className="text-sm text-destructive">{formError}</p>}
-                  <Button type="submit" disabled={submitting}>
-                    {submitting ? "Creating…" : "Create search config"}
-                  </Button>
-                </form>
-              </section>
+              <Collapsible open={createOpen} onOpenChange={setCreateOpen} asChild>
+                <section>
+                  <CollapsibleTrigger className="group flex w-full items-center gap-2 text-left">
+                    <ChevronRight className="h-4 w-4 transition-transform group-data-[state=open]:rotate-90" />
+                    <h2 className="text-lg font-semibold">Create search config</h2>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-3">
+                    <form onSubmit={handleCreateSearchConfig} className="flex flex-col gap-3 max-w-md">
+                      <div className="space-y-1">
+                        <label htmlFor="name" className="text-sm font-medium">Name</label>
+                        <Input
+                          id="name"
+                          value={formName}
+                          onChange={(e) => setFormName(e.target.value)}
+                          placeholder="e.g. Emoji GPT-4"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label htmlFor="prompt" className="text-sm font-medium">Description prompt</label>
+                        <Input
+                          id="prompt"
+                          value={formPrompt}
+                          onChange={(e) => setFormPrompt(e.target.value)}
+                          placeholder="Optional"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label htmlFor="descModel" className="text-sm font-medium">Description model</label>
+                        <Input
+                          id="descModel"
+                          value={formDescModel}
+                          onChange={(e) => setFormDescModel(e.target.value)}
+                          placeholder="e.g. gpt-4o-mini"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label htmlFor="embedModel" className="text-sm font-medium">Embedding model</label>
+                        <Input
+                          id="embedModel"
+                          value={formEmbedModel}
+                          onChange={(e) => setFormEmbedModel(e.target.value)}
+                          placeholder="e.g. text-embedding-3-small"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label htmlFor="dimension" className="text-sm font-medium">Embedding dimension</label>
+                        <select
+                          id="dimension"
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                          value={formDimension}
+                          onChange={(e) => setFormDimension(Number(e.target.value))}
+                        >
+                          {DIMENSIONS.map((d) => (
+                            <option key={d} value={d}>{d}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {formError && <p className="text-sm text-destructive">{formError}</p>}
+                      <Button type="submit" disabled={submitting}>
+                        {submitting ? "Creating…" : "Create search config"}
+                      </Button>
+                    </form>
+                  </CollapsibleContent>
+                </section>
+              </Collapsible>
             </>
           )}
         </div>

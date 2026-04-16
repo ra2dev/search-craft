@@ -9,15 +9,17 @@
 
 ## Entity List
 
-| Entity | Purpose |
-|--------|--------|
-| `dataset_status` (enum) | `uploaded` \| `described` \| `vectorized` — used on `search_datasets` |
-| `datasets` | One per uploaded JSON (e.g. emoji list, meme list). Id, name, created_at. |
-| `documents` | One row per item in a dataset. Raw content + metadata (jsonb). FK → datasets. |
-| `search_datasets` | One per search config of a dataset (prompt, description model, embedding model/dimension). FK → datasets; has status; determines which embedding_* column is used. |
-| `search_documents` | One row per document per search_dataset: content copy + LLM description + one of embedding_384/768/1536/3072; FTS via generated search_vector. Unique (search_dataset_id, document_id). |
-| `validation_sets` | Named set of test queries for one search_dataset. FK → search_datasets. |
-| `validation_queries` | One row per test query: query text + expected_document_ids (documents.id). FK → validation_sets. |
+
+| Entity                  | Purpose                                                                                                                                                                                 |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dataset_status` (enum) | `uploaded` | `described` | `vectorized` — used on `search_datasets`                                                                                                                     |
+| `datasets`              | One per uploaded JSON (e.g. emoji list, meme list). Id, name, created_at.                                                                                                               |
+| `documents`             | One row per item in a dataset. Raw content + metadata (jsonb). FK → datasets.                                                                                                           |
+| `search_datasets`       | One per search config of a dataset (prompt, description model, embedding model/dimension). FK → datasets; has status; determines which embedding_* column is used.                      |
+| `search_documents`      | One row per document per search_dataset: content copy + LLM description + one of embedding_384/768/1536/3072; FTS via generated search_vector. Unique (search_dataset_id, document_id). |
+| `validation_sets`       | Named set of test queries for one search_dataset. FK → search_datasets.                                                                                                                 |
+| `validation_queries`    | One row per test query: query text + expected_document_ids (documents.id). FK → validation_sets.                                                                                        |
+
 
 ## Out of Scope (not domain entities)
 
@@ -36,3 +38,4 @@ Implemented in `supabase/schemas/`:
 - `05_search_documents.sql` — search_documents (+ FTS)
 - `06_validation_sets.sql` — validation_sets
 - `07_validation_queries.sql` — validation_queries
+

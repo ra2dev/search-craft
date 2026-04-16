@@ -18,6 +18,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { Trash2 } from "lucide-react";
 
 type Dataset = { id: string; name: string; created_at: string };
 
@@ -25,6 +26,7 @@ export default function DatasetsListPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/datasets")
@@ -33,6 +35,27 @@ export default function DatasetsListPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"))
       .finally(() => setLoading(false));
   }, []);
+
+  async function handleDelete(dataset: Dataset) {
+    const confirmed = window.confirm(
+      `Delete dataset "${dataset.name}"? This will also delete all its documents, search configs, and validation sets. This cannot be undone.`
+    );
+    if (!confirmed) return;
+    setDeletingId(dataset.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/datasets/${dataset.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? res.statusText);
+      }
+      setDatasets((prev) => prev.filter((d) => d.id !== dataset.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <SidebarProvider>
@@ -71,13 +94,21 @@ export default function DatasetsListPage() {
               ) : (
                 datasets.map((d) => (
                   <li key={d.id}>
-                    <Link
-                      href={`/datasets/${d.id}`}
-                      className="block rounded-lg border p-3 hover:bg-muted/50"
-                    >
-                      <span className="font-medium">{d.name}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">{d.id}</span>
-                    </Link>
+                    <div className="flex items-center gap-2 rounded-lg border p-3 hover:bg-muted/50">
+                      <Link href={`/datasets/${d.id}`} className="flex-1 min-w-0">
+                        <span className="font-medium">{d.name}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">{d.id}</span>
+                      </Link>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Delete dataset ${d.name}`}
+                        disabled={deletingId === d.id}
+                        onClick={() => handleDelete(d)}
+                      >
+                        <Trash2 className="size-4 text-destructive" />
+                      </Button>
+                    </div>
                   </li>
                 ))
               )}
