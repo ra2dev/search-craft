@@ -149,13 +149,13 @@ git commit -m "feat: upload UI — create dataset from JSON"
 
 ---
 
-## Slice 5: Search (hybrid)
+## Slice 5: Search (hybrid) ✅ Done
 
-### Task 12: Search API
+### Task 12: Search API ✅
 
 **Files:** Create `app/api/search-datasets/[id]/search/route.ts`. Query params: `q`, optional `k`. Hybrid: vector search (using the correct embedding_* column) + FTS on `search_vector`; combine/rank; return top-k doc IDs and snippets.
 
-### Task 13: Search UI
+### Task 13: Search UI ✅
 
 **Files:** Search box on search-dataset detail; call search API; display ranked results.
 
@@ -183,7 +183,7 @@ git commit -m "feat: upload UI — create dataset from JSON"
 2. ✅ Slice 2 (Tasks 4–7): Search datasets CRUD.
 3. ✅ Slice 3 (Tasks 8–9): Describe.
 4. ✅ Slice 4 (Tasks 10–11): Vectorize.
-5. Slice 5 (Tasks 12–13): Search.
+5. ✅ Slice 5 (Tasks 12–13): Search.
 6. Slice 6 (Tasks 14–16): Validation.
 
 Test after each slice (manual or automated). DRY: reuse `createServerSupabase()` and shared types (e.g. dataset_status, embedding dimensions) where possible.

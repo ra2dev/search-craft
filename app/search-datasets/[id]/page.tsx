@@ -11,6 +11,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
@@ -61,6 +62,25 @@ type SearchDocumentsResponse = {
   documents: SearchDocumentPreview[];
 };
 
+type SearchResultItem = {
+  id: string;
+  document_id: string;
+  content: string;
+  description: string | null;
+  snippet: string;
+  vector_similarity: number;
+  fts_rank: number;
+  score: number;
+};
+
+type SearchResponse = {
+  query: string;
+  k: number;
+  embedding_dimension: number;
+  result_count: number;
+  results: SearchResultItem[];
+};
+
 export default function SearchDatasetDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -78,6 +98,11 @@ export default function SearchDatasetDetailPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [documents, setDocuments] = useState<SearchDocumentPreview[]>([]);
   const [documentsTotal, setDocumentsTotal] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchK, setSearchK] = useState(10);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchResponse, setSearchResponse] = useState<SearchResponse | null>(null);
 
   const loadDetail = useCallback(() => {
     return fetch(`/api/search-datasets/${id}`)
@@ -160,6 +185,38 @@ export default function SearchDatasetDetailPage() {
       setDeleting(false);
     }
   }
+
+  async function handleRunSearch(event?: React.FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    const query = searchQuery.trim();
+    if (!query) {
+      setSearchError("Enter a query to search.");
+      return;
+    }
+    setSearching(true);
+    setSearchError(null);
+    setSearchResponse(null);
+    try {
+      const params = new URLSearchParams({ q: query, k: String(searchK) });
+      const res = await fetch(`/api/search-datasets/${id}/search?${params.toString()}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSearchError(data.error ?? "Search failed");
+        return;
+      }
+      setSearchResponse(data as SearchResponse);
+    } catch {
+      setSearchError("Network error");
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  const canSearch =
+    detail != null &&
+    !!detail.embedding_model &&
+    !!detail.embedding_dimension &&
+    detail.vectorized_count > 0;
 
   const canDescribe =
     detail != null &&
@@ -327,6 +384,86 @@ export default function SearchDatasetDetailPage() {
                           <li>…and {vectorizeResult.failures.length - 5} more</li>
                         )}
                       </ul>
+                    )}
+                  </div>
+                )}
+              </section>
+
+              <section className="space-y-3">
+                <h2 className="text-lg font-semibold">Search</h2>
+                {!canSearch ? (
+                  <p className="text-sm text-muted-foreground">
+                    Vectorize at least one document before searching.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Hybrid search: embeds your query with{" "}
+                    <span className="font-mono">{detail.embedding_model}</span> and combines vector
+                    similarity with full-text search using reciprocal rank fusion.
+                  </p>
+                )}
+                <form onSubmit={handleRunSearch} className="flex flex-wrap items-center gap-2">
+                  <Input
+                    type="text"
+                    placeholder="Type a query…"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="max-w-md"
+                    disabled={!canSearch || searching}
+                  />
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                    k
+                    <Input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={searchK}
+                      onChange={(e) =>
+                        setSearchK(Math.max(1, Math.min(100, Number(e.target.value) || 10)))
+                      }
+                      className="w-20"
+                      disabled={!canSearch || searching}
+                    />
+                  </label>
+                  <Button type="submit" disabled={!canSearch || searching}>
+                    {searching ? "Searching…" : "Search"}
+                  </Button>
+                </form>
+                {searchError && <p className="text-sm text-destructive">{searchError}</p>}
+                {searchResponse && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      {searchResponse.result_count === 0
+                        ? "No results."
+                        : `Top ${searchResponse.result_count} result${
+                            searchResponse.result_count === 1 ? "" : "s"
+                          } for “${searchResponse.query}”`}
+                    </p>
+                    {searchResponse.results.length > 0 && (
+                      <ol className="space-y-2">
+                        {searchResponse.results.map((r, idx) => (
+                          <li
+                            key={r.id}
+                            className="rounded-md border p-3 text-sm"
+                          >
+                            <div className="mb-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                              <span>
+                                #{idx + 1} · doc {r.document_id.slice(0, 8)}
+                              </span>
+                              <span className="font-mono">
+                                score {r.score.toFixed(4)} · vec {r.vector_similarity.toFixed(3)} ·
+                                fts {r.fts_rank.toFixed(3)}
+                              </span>
+                            </div>
+                            <div className="whitespace-pre-wrap break-words">{r.snippet}</div>
+                            {r.description && (
+                              <div className="mt-2 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+                                {r.description}
+                              </div>
+                            )}
+                          </li>
+                        ))}
+                      </ol>
                     )}
                   </div>
                 )}
