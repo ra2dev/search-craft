@@ -161,14 +161,15 @@ git commit -m "feat: upload UI — create dataset from JSON"
 
 ---
 
-## Slice 6: Validation (dataset-level set, reusable across search configs)
+## Slice 6: Validation (dataset-level sets, reusable across search configs) ✅ Done
 
 **Design goals:**
-- A **validation set is attached to a `dataset`** (1:1), so the **same queries and expected results can be evaluated against every `search_dataset`** (config) derived from it — enabling side-by-side comparison of configs.
+- Each **`dataset` can have many validation sets** (e.g. "smoke tests", "edge cases", "hard negatives"), each a named collection of queries + expected docs.
+- Any validation set can be **run against any `search_dataset`** (config) derived from that same dataset — enabling side-by-side comparison of configs on the same queries.
 - Each **validation query carries a per-query rank constraint (`max_rank`)**: e.g. query `"cake"` with `max_rank = 10` means the expected document(s) must appear in the top 10; query `"heart"` with `max_rank = 1` means expected must be rank 1 (first result).
-- A **validation run** records which `search_dataset` was evaluated and the resulting metrics (pass rate, recall@max_rank, MRR).
+- A **validation run** records which `validation_set` + which `search_dataset` was evaluated and the resulting metrics (pass rate, recall@max_rank, MRR).
 
-### Task 14: Schema changes for dataset-level validation sets
+### Task 14: Schema changes for dataset-level validation sets ✅
 
 **Files:**
 - Modify: `supabase/schemas/06_validation_sets.sql`
@@ -177,19 +178,20 @@ git commit -m "feat: upload UI — create dataset from JSON"
 - Modify: `supabase/schemas/09_indexes.sql`
 - Create: `supabase/migrations/<timestamp>_validation_dataset_level.sql`
 
-**Step 1: `validation_sets` → scoped to `dataset_id` (1:1)**
+**Step 1: `validation_sets` → scoped to `dataset_id` (many per dataset)**
 
 ```sql
 -- schemas/06_validation_sets.sql
 create table public.validation_sets (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  dataset_id uuid not null unique references public.datasets(id) on delete cascade,
-  created_at timestamptz not null default now()
+  dataset_id uuid not null references public.datasets(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (dataset_id, name)
 );
 ```
 
-(Drop `search_dataset_id`; add `unique` on `dataset_id` so there's exactly one set per dataset.)
+(Drop `search_dataset_id`; scope sets by `dataset_id`. Many sets per dataset, names unique within a dataset.)
 
 **Step 2: `validation_queries` → add `max_rank`**
 
@@ -229,7 +231,8 @@ comment on column public.validation_runs.metrics is
 **Step 4: Indexes**
 
 Update `schemas/09_indexes.sql`:
-- Drop `validation_sets_search_dataset_id_idx` (column gone; `unique` covers `dataset_id`).
+- Drop `validation_sets_search_dataset_id_idx` (column gone).
+- Add `validation_sets_dataset_id_idx on public.validation_sets(dataset_id)`.
 - Add `validation_runs_search_dataset_id_idx on public.validation_runs(search_dataset_id)`.
 
 **Step 5: Migration**
@@ -237,7 +240,7 @@ Update `schemas/09_indexes.sql`:
 Create `supabase/migrations/<timestamp>_validation_dataset_level.sql`:
 
 ```sql
--- validation_sets: move from search_dataset_id → dataset_id (1:1 per dataset)
+-- validation_sets: move from search_dataset_id → dataset_id (many per dataset)
 alter table public.validation_sets
   add column dataset_id uuid references public.datasets(id) on delete cascade;
 
@@ -249,10 +252,12 @@ where vs.search_dataset_id = sd.id;
 
 alter table public.validation_sets
   alter column dataset_id set not null,
-  add constraint validation_sets_dataset_id_key unique (dataset_id);
+  add constraint validation_sets_dataset_id_name_key unique (dataset_id, name);
 
 drop index if exists public.validation_sets_search_dataset_id_idx;
 alter table public.validation_sets drop column search_dataset_id;
+create index if not exists validation_sets_dataset_id_idx
+  on public.validation_sets(dataset_id);
 
 -- validation_queries: per-query rank threshold
 alter table public.validation_queries
@@ -281,45 +286,52 @@ git commit -m "feat(db): dataset-level validation sets + per-query max_rank"
 
 ---
 
-### Task 15: Validation set + queries API (dataset-scoped)
+### Task 15: Validation sets + queries API (dataset-scoped, many per dataset) ✅
 
 **Files:**
-- Create: `app/api/datasets/[id]/validation-set/route.ts` (singular — 1:1)
+- Create: `app/api/datasets/[id]/validation-sets/route.ts`
+- Create: `app/api/validation-sets/[id]/route.ts`
 - Create: `app/api/validation-sets/[id]/queries/route.ts`
 
-**Step 1: `GET /api/datasets/[id]/validation-set`**
+**Step 1: `GET /api/datasets/[id]/validation-sets`**
 
-- Return the single `validation_set` for the dataset (or `null` if none), plus its `validation_queries`.
+- Return list of `validation_sets` for the dataset (id, name, created_at, query count).
 
-**Step 2: `POST /api/datasets/[id]/validation-set`**
+**Step 2: `POST /api/datasets/[id]/validation-sets`**
 
-- Body: `{ name: string }`. Upsert (error if already exists, since `dataset_id` is unique). Return the created set.
+- Body: `{ name: string }`. Insert a new validation set scoped to `dataset_id`. Reject on unique `(dataset_id, name)` conflict with a 409. Return the created set.
 
-**Step 3: `POST /api/validation-sets/[id]/queries`**
+**Step 3: `GET /api/validation-sets/[id]` (and `DELETE`)**
+
+- `GET` returns the set plus its `validation_queries`.
+- `DELETE` removes the set (cascades queries + runs).
+
+**Step 4: `POST /api/validation-sets/[id]/queries`**
 
 - Body: `Array<{ query: string; expected_document_ids: string[]; max_rank?: number }>` (default `max_rank = 10`).
 - Bulk insert into `validation_queries`. Return count + inserted rows.
-- Optionally `DELETE` or `PUT` to replace the whole set.
+- Optionally `PUT` to replace the whole set of queries.
 
-**Step 4: Commit**
+**Step 5: Commit**
 
 ```bash
-git add app/api/datasets/[id]/validation-set app/api/validation-sets/[id]/queries
-git commit -m "feat: dataset-level validation set + queries API"
+git add app/api/datasets/[id]/validation-sets app/api/validation-sets
+git commit -m "feat: dataset-level validation sets + queries API"
 ```
 
 ---
 
-### Task 16: Run validation API (per search config)
+### Task 16: Run validation API (pick a set, run against a search config) ✅
 
 **Files:**
 - Create: `app/api/search-datasets/[id]/validate/route.ts`
 
 **Step 1: `POST /api/search-datasets/[id]/validate`**
 
-- Resolve the `search_dataset`; look up its parent `dataset_id`; load that dataset's `validation_set` + `validation_queries`. Error if no validation set exists for the dataset.
+- Body: `{ validation_set_id: string }`.
+- Resolve the `search_dataset`; look up its parent `dataset_id`; load the `validation_set` and **verify its `dataset_id` matches** the `search_dataset`'s parent (reject with 400 otherwise). Load its `validation_queries`.
 - For each `validation_query`:
-  - Run the search API (reuse the search function directly, not over HTTP) on this `search_dataset` with `q = query`, `k = max_rank` (or `max(max_rank, 10)` so aggregate recall@10 / MRR@10 stay comparable).
+  - Run the search function directly (not over HTTP) on this `search_dataset` with `q = query`, `k = max(max_rank, 10)` so aggregate recall@10 / MRR@10 stay comparable across sets.
   - For each `expected_document_id`, find its rank in the result list (1-indexed; `Infinity` if missing).
   - `passed = every expected doc has rank <= max_rank`.
   - Record `best_rank = min(ranks)` (for MRR).
@@ -327,24 +339,29 @@ git commit -m "feat: dataset-level validation set + queries API"
   - `pass_rate = passed / total`
   - `recall_at_max_rank = mean(per-query: fraction of expected docs with rank <= max_rank)`
   - `mrr = mean(1 / best_rank)` (0 if missing)
-- Insert a `validation_runs` row with `{ validation_set_id, search_dataset_id, params, metrics, per_query: [...] }` in `metrics`.
+- Insert a `validation_runs` row with `{ validation_set_id, search_dataset_id, params, metrics }` where `metrics` includes `per_query: [...]`.
 - Return `{ run_id, metrics, per_query: [{ query, max_rank, expected_document_ids, ranks, best_rank, passed }] }`.
 
-**Step 2: Commit**
+**Step 2: Optional — list runs**
+
+- `GET /api/search-datasets/[id]/validation-runs` — list prior runs for this search config (joined with `validation_sets.name`), for comparison views.
+
+**Step 3: Commit**
 
 ```bash
 git add app/api/search-datasets/[id]/validate
-git commit -m "feat: run validation for a search_dataset against dataset's validation set"
+git commit -m "feat: run a chosen validation set against a search_dataset"
 ```
 
 ---
 
-### Task 17: Validation UI
+### Task 17: Validation UI ✅
 
 **Files:**
-- Modify: `app/datasets/[id]/page.tsx` — manage the dataset's validation set (create, list/edit queries, JSON-paste uploader).
-- Modify: `app/search-datasets/[id]/page.tsx` — "Run validation" button, shown only if the parent dataset has a validation set; display pass rate, recall@max_rank, MRR, and a per-query table (query, max_rank, best rank, pass/fail).
-- Optional: component to compare runs across search configs (e.g. a table with rows = configs, columns = metrics).
+- Modify: `app/datasets/[id]/page.tsx` — list the dataset's validation sets, create a new named set, open a set for editing.
+- Create: `app/validation-sets/[id]/page.tsx` — set detail: list/edit queries, JSON-paste uploader, delete.
+- Modify: `app/search-datasets/[id]/page.tsx` — select which validation set to run (dropdown of the parent dataset's sets), "Run validation" button, display pass rate, recall@max_rank, MRR, and a per-query table (query, max_rank, best rank, pass/fail). Optional: history of prior runs for this config.
+- Optional: component to compare runs across search configs for the same validation set (rows = configs, columns = metrics).
 
 **Step 1: Queries JSON format for the UI upload**
 
@@ -371,6 +388,6 @@ git commit -m "feat: validation UI — manage set on dataset, run per search con
 3. ✅ Slice 3 (Tasks 8–9): Describe.
 4. ✅ Slice 4 (Tasks 10–11): Vectorize.
 5. ✅ Slice 5 (Tasks 12–13): Search.
-6. Slice 6 (Tasks 14–17): Validation (dataset-level set; reusable across search configs; per-query `max_rank`).
+6. ✅ Slice 6 (Tasks 14–17): Validation (many dataset-level sets; reusable across search configs; per-query `max_rank`).
 
 Test after each slice (manual or automated). DRY: reuse `createServerSupabase()` and shared types (e.g. dataset_status, embedding dimensions) where possible.
