@@ -50,6 +50,13 @@ type DocumentsResponse = {
   documents: DocumentPreview[];
 };
 
+type ValidationSetSummary = {
+  id: string;
+  name: string;
+  created_at: string;
+  query_count: number;
+};
+
 const PREVIEW_LIMIT = 20;
 
 const DIMENSIONS = [384, 768, 1536, 3072] as const;
@@ -69,6 +76,11 @@ export default function DatasetDetailPage() {
   const [deletingSearchId, setDeletingSearchId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  const [validationSets, setValidationSets] = useState<ValidationSetSummary[]>([]);
+  const [newValidationName, setNewValidationName] = useState("");
+  const [creatingValidationSet, setCreatingValidationSet] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
   const [formName, setFormName] = useState("Emoji search");
   const [formPrompt, setFormPrompt] = useState(
     "You are given an emoji and its unicode name. Write a concise, search-friendly description (1-2 sentences) covering the emoji's common meanings, feelings, contexts, and synonyms people might type when searching for it. Do not repeat the unicode name verbatim; expand on it."
@@ -86,6 +98,13 @@ export default function DatasetDetailPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"));
   }, [id]);
 
+  const fetchValidationSets = useCallback(() => {
+    fetch(`/api/datasets/${id}/validation-sets`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(res.statusText))))
+      .then((data: ValidationSetSummary[]) => setValidationSets(data))
+      .catch((err) => setValidationError(err instanceof Error ? err.message : "Failed to load"));
+  }, [id]);
+
   useEffect(() => {
     Promise.all([
       fetch("/api/datasets").then((res) => res.json()),
@@ -93,23 +112,55 @@ export default function DatasetDetailPage() {
       fetch(`/api/datasets/${id}/documents?limit=${PREVIEW_LIMIT}`).then((res) =>
         res.ok ? res.json() : { total: 0, documents: [] }
       ),
+      fetch(`/api/datasets/${id}/validation-sets`).then((res) => (res.ok ? res.json() : [])),
     ])
       .then(
-        ([datasets, searchConfigs, docsResponse]: [
+        ([datasets, searchConfigs, docsResponse, validationList]: [
           Array<{ id: string; name: string }>,
           SearchDataset[],
           DocumentsResponse,
+          ValidationSetSummary[],
         ]) => {
           const ds = datasets.find((d: { id: string }) => d.id === id);
           setDatasetName(ds?.name ?? id);
           setSearchDatasets(searchConfigs);
           setDocuments(docsResponse.documents ?? []);
           setDocumentsTotal(docsResponse.total ?? 0);
+          setValidationSets(validationList ?? []);
         }
       )
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"))
       .finally(() => setLoading(false));
   }, [id]);
+
+  async function handleCreateValidationSet(e: React.FormEvent) {
+    e.preventDefault();
+    const name = newValidationName.trim();
+    if (!name) {
+      setValidationError("Name is required");
+      return;
+    }
+    setCreatingValidationSet(true);
+    setValidationError(null);
+    try {
+      const res = await fetch(`/api/datasets/${id}/validation-sets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setValidationError(data.error ?? "Failed to create validation set");
+        return;
+      }
+      setNewValidationName("");
+      fetchValidationSets();
+    } catch {
+      setValidationError("Network error");
+    } finally {
+      setCreatingValidationSet(false);
+    }
+  }
 
   async function handleDeleteDataset() {
     const confirmed = window.confirm(
@@ -314,6 +365,49 @@ export default function DatasetDetailPage() {
                       </li>
                     ))}
                   </ul>
+                )}
+              </section>
+
+              <section>
+                <h2 className="text-lg font-semibold mb-3">Validation sets</h2>
+                {validationSets.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No validation sets yet. Create one below, then open it to add queries.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {validationSets.map((vs) => (
+                      <li key={vs.id}>
+                        <Link
+                          href={`/validation-sets/${vs.id}`}
+                          className="flex items-center gap-2 rounded-lg border p-3 hover:bg-muted/50"
+                        >
+                          <span className="font-medium">{vs.name}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            {vs.query_count} {vs.query_count === 1 ? "query" : "queries"}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <form
+                  onSubmit={handleCreateValidationSet}
+                  className="mt-3 flex flex-wrap items-center gap-2"
+                >
+                  <Input
+                    value={newValidationName}
+                    onChange={(e) => setNewValidationName(e.target.value)}
+                    placeholder="Validation set name (e.g. smoke tests)"
+                    className="max-w-xs"
+                    disabled={creatingValidationSet}
+                  />
+                  <Button type="submit" size="sm" disabled={creatingValidationSet}>
+                    {creatingValidationSet ? "Creating…" : "Create set"}
+                  </Button>
+                </form>
+                {validationError && (
+                  <p className="mt-2 text-sm text-destructive">{validationError}</p>
                 )}
               </section>
 

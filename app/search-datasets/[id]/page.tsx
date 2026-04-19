@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -81,6 +82,49 @@ type SearchResponse = {
   results: SearchResultItem[];
 };
 
+type ValidationSetSummary = {
+  id: string;
+  name: string;
+  query_count: number;
+};
+
+type ValidationRunMetrics = {
+  total_queries: number;
+  pass_rate: number;
+  recall_at_max_rank: number;
+  mrr: number;
+};
+
+type ValidationPerQuery = {
+  query_id: string;
+  query: string;
+  max_rank: number;
+  expected_document_ids: string[];
+  ranks: Array<number | null>;
+  best_rank: number | null;
+  passed: boolean;
+};
+
+type ValidationRunResponse = {
+  run_id: string;
+  run_at: string;
+  metrics: ValidationRunMetrics;
+  per_query: ValidationPerQuery[];
+};
+
+type ValidationRunSummary = {
+  id: string;
+  run_at: string;
+  validation_set_id: string;
+  validation_set_name: string | null;
+  metrics: {
+    total_queries: number | null;
+    pass_rate: number | null;
+    recall_at_max_rank: number | null;
+    mrr: number | null;
+  };
+};
+
 export default function SearchDatasetDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -104,6 +148,13 @@ export default function SearchDatasetDetailPage() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searchResponse, setSearchResponse] = useState<SearchResponse | null>(null);
 
+  const [validationSets, setValidationSets] = useState<ValidationSetSummary[]>([]);
+  const [selectedValidationSetId, setSelectedValidationSetId] = useState<string>("");
+  const [runningValidation, setRunningValidation] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [validationRun, setValidationRun] = useState<ValidationRunResponse | null>(null);
+  const [validationHistory, setValidationHistory] = useState<ValidationRunSummary[]>([]);
+
   const loadDetail = useCallback(() => {
     return fetch(`/api/search-datasets/${id}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(res.statusText))))
@@ -121,9 +172,63 @@ export default function SearchDatasetDetailPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"));
   }, [id]);
 
+  const loadValidationHistory = useCallback(() => {
+    return fetch(`/api/search-datasets/${id}/validation-runs`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: ValidationRunSummary[]) => setValidationHistory(data ?? []))
+      .catch(() => {});
+  }, [id]);
+
   useEffect(() => {
     Promise.all([loadDetail(), loadDocuments()]).finally(() => setLoading(false));
   }, [loadDetail, loadDocuments]);
+
+  useEffect(() => {
+    loadValidationHistory();
+  }, [loadValidationHistory]);
+
+  useEffect(() => {
+    if (!detail?.dataset_id) return;
+    fetch(`/api/datasets/${detail.dataset_id}/validation-sets`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: ValidationSetSummary[]) => {
+        setValidationSets(data ?? []);
+        setSelectedValidationSetId((prev) => {
+          if (prev && data?.some((s) => s.id === prev)) return prev;
+          return data?.[0]?.id ?? "";
+        });
+      })
+      .catch(() => {});
+  }, [detail?.dataset_id]);
+
+  async function handleRunValidation(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!selectedValidationSetId) {
+      setValidationError("Select a validation set first.");
+      return;
+    }
+    setRunningValidation(true);
+    setValidationError(null);
+    setValidationRun(null);
+    try {
+      const res = await fetch(`/api/search-datasets/${id}/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ validation_set_id: selectedValidationSetId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setValidationError(data.error ?? "Validation failed");
+        return;
+      }
+      setValidationRun(data as ValidationRunResponse);
+      await loadValidationHistory();
+    } catch {
+      setValidationError("Network error");
+    } finally {
+      setRunningValidation(false);
+    }
+  }
 
   async function handleRunDescribe() {
     setDescribing(true);
@@ -465,6 +570,180 @@ export default function SearchDatasetDetailPage() {
                         ))}
                       </ol>
                     )}
+                  </div>
+                )}
+              </section>
+
+              <section className="space-y-3">
+                <h2 className="text-lg font-semibold">Validation</h2>
+                {!canSearch ? (
+                  <p className="text-sm text-muted-foreground">
+                    Vectorize at least one document before running validation.
+                  </p>
+                ) : validationSets.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No validation sets on the parent dataset yet.{" "}
+                    {detail && (
+                      <Link
+                        href={`/datasets/${detail.dataset_id}`}
+                        className="underline underline-offset-2"
+                      >
+                        Create one on the dataset page
+                      </Link>
+                    )}{" "}
+                    first, then come back here to run it.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Runs a validation set&apos;s queries against this search config and records
+                    pass rate, recall@max_rank, and MRR.
+                  </p>
+                )}
+                {validationSets.length > 0 && (
+                  <form
+                    onSubmit={handleRunValidation}
+                    className="flex flex-wrap items-center gap-2"
+                  >
+                    <select
+                      className="flex h-9 min-w-56 rounded-md border border-input bg-background px-3 py-1 text-sm"
+                      value={selectedValidationSetId}
+                      onChange={(e) => setSelectedValidationSetId(e.target.value)}
+                      disabled={!canSearch || runningValidation}
+                    >
+                      {validationSets.map((vs) => (
+                        <option key={vs.id} value={vs.id}>
+                          {vs.name} ({vs.query_count})
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      type="submit"
+                      disabled={!canSearch || !selectedValidationSetId || runningValidation}
+                    >
+                      {runningValidation ? "Running validation…" : "Run validation"}
+                    </Button>
+                    {selectedValidationSetId && (
+                      <Link
+                        href={`/validation-sets/${selectedValidationSetId}`}
+                        className="text-xs text-muted-foreground underline underline-offset-2"
+                      >
+                        Edit set
+                      </Link>
+                    )}
+                  </form>
+                )}
+                {validationError && (
+                  <p className="text-sm text-destructive">{validationError}</p>
+                )}
+                {validationRun && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-md border p-3 text-sm sm:grid-cols-4">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Queries</div>
+                        <div className="font-mono">{validationRun.metrics.total_queries}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Pass rate</div>
+                        <div className="font-mono">
+                          {(validationRun.metrics.pass_rate * 100).toFixed(1)}%
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Recall@max_rank</div>
+                        <div className="font-mono">
+                          {(validationRun.metrics.recall_at_max_rank * 100).toFixed(1)}%
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">MRR</div>
+                        <div className="font-mono">{validationRun.metrics.mrr.toFixed(4)}</div>
+                      </div>
+                    </div>
+                    <div className="overflow-hidden rounded-lg border">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium">Query</th>
+                            <th className="px-3 py-2 text-left font-medium">Max rank</th>
+                            <th className="px-3 py-2 text-left font-medium">Best rank</th>
+                            <th className="px-3 py-2 text-left font-medium">Expected ranks</th>
+                            <th className="px-3 py-2 text-left font-medium">Result</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {validationRun.per_query.map((row) => (
+                            <tr key={row.query_id} className="border-t align-top">
+                              <td className="px-3 py-2 font-medium">{row.query}</td>
+                              <td className="px-3 py-2 font-mono">{row.max_rank}</td>
+                              <td className="px-3 py-2 font-mono">
+                                {row.best_rank ?? "—"}
+                              </td>
+                              <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                                {row.ranks.length === 0
+                                  ? "—"
+                                  : row.ranks.map((r) => r ?? "∞").join(", ")}
+                              </td>
+                              <td className="px-3 py-2">
+                                {row.passed ? (
+                                  <span className="text-green-700">pass</span>
+                                ) : (
+                                  <span className="text-destructive">fail</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                {validationHistory.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-medium">Prior runs</h3>
+                    <div className="overflow-hidden rounded-lg border">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium">When</th>
+                            <th className="px-3 py-2 text-left font-medium">Set</th>
+                            <th className="px-3 py-2 text-left font-medium">Queries</th>
+                            <th className="px-3 py-2 text-left font-medium">Pass rate</th>
+                            <th className="px-3 py-2 text-left font-medium">Recall</th>
+                            <th className="px-3 py-2 text-left font-medium">MRR</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {validationHistory.map((run) => (
+                            <tr key={run.id} className="border-t align-top">
+                              <td className="px-3 py-2 text-xs text-muted-foreground">
+                                {new Date(run.run_at).toLocaleString()}
+                              </td>
+                              <td className="px-3 py-2">
+                                {run.validation_set_name ?? (
+                                  <span className="italic text-muted-foreground">deleted</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 font-mono">
+                                {run.metrics.total_queries ?? "—"}
+                              </td>
+                              <td className="px-3 py-2 font-mono">
+                                {run.metrics.pass_rate != null
+                                  ? `${(run.metrics.pass_rate * 100).toFixed(1)}%`
+                                  : "—"}
+                              </td>
+                              <td className="px-3 py-2 font-mono">
+                                {run.metrics.recall_at_max_rank != null
+                                  ? `${(run.metrics.recall_at_max_rank * 100).toFixed(1)}%`
+                                  : "—"}
+                              </td>
+                              <td className="px-3 py-2 font-mono">
+                                {run.metrics.mrr != null ? run.metrics.mrr.toFixed(4) : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </section>
