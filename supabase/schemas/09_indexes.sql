@@ -14,6 +14,7 @@ create index search_documents_search_dataset_id_idx on public.search_documents(s
 create index search_documents_document_id_idx on public.search_documents(document_id);
 
 -- Validation
-create index validation_sets_search_dataset_id_idx on public.validation_sets(search_dataset_id);
+create index validation_sets_dataset_id_idx on public.validation_sets(dataset_id);
 create index validation_queries_validation_set_id_idx on public.validation_queries(validation_set_id);
 create index validation_runs_validation_set_id_idx on public.validation_runs(validation_set_id);
+create index validation_runs_search_dataset_id_idx on public.validation_runs(search_dataset_id);
