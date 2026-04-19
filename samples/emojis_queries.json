@@ -1,0 +1,202 @@
+[
+  {
+    "query": "rocket",
+    "expected_contents": ["🚀 rocket"],
+    "max_rank": 1
+  },
+  {
+    "query": "pizza",
+    "expected_contents": ["🍕 pizza"],
+    "max_rank": 1
+  },
+  {
+    "query": "laptop",
+    "expected_contents": ["💻 laptop"],
+    "max_rank": 1
+  },
+  {
+    "query": "light bulb",
+    "expected_contents": ["💡 light bulb"],
+    "max_rank": 1
+  },
+  {
+    "query": "soccer ball",
+    "expected_contents": ["⚽ soccer ball"],
+    "max_rank": 1
+  },
+  {
+    "query": "happy",
+    "expected_contents": ["😀 grinning face", "😂 face with tears of joy"],
+    "max_rank": 5
+  },
+  {
+    "query": "laughing",
+    "expected_contents": ["😂 face with tears of joy"],
+    "max_rank": 3
+  },
+  {
+    "query": "sad",
+    "expected_contents": ["😢 crying face", "🥲 smiling face with tear"],
+    "max_rank": 5
+  },
+  {
+    "query": "tired",
+    "expected_contents": ["😴 sleeping face"],
+    "max_rank": 3
+  },
+  {
+    "query": "thinking",
+    "expected_contents": ["🤔 thinking face"],
+    "max_rank": 1
+  },
+  {
+    "query": "love",
+    "expected_contents": ["❤️ red heart"],
+    "max_rank": 3
+  },
+  {
+    "query": "celebration",
+    "expected_contents": ["🎉 party popper", "🎂 birthday cake"],
+    "max_rank": 5
+  },
+  {
+    "query": "birthday",
+    "expected_contents": ["🎂 birthday cake"],
+    "max_rank": 1
+  },
+  {
+    "query": "launch",
+    "expected_contents": ["🚀 rocket"],
+    "max_rank": 3
+  },
+  {
+    "query": "idea",
+    "expected_contents": ["💡 light bulb"],
+    "max_rank": 3
+  },
+  {
+    "query": "computer",
+    "expected_contents": ["💻 laptop"],
+    "max_rank": 3
+  },
+  {
+    "query": "hot",
+    "expected_contents": ["🔥 fire"],
+    "max_rank": 3
+  },
+  {
+    "query": "magic",
+    "expected_contents": ["✨ sparkles"],
+    "max_rank": 3
+  },
+  {
+    "query": "approval",
+    "expected_contents": ["👍 thumbs up"],
+    "max_rank": 3
+  },
+  {
+    "query": "thank you",
+    "expected_contents": ["🙏 folded hands", "👍 thumbs up"],
+    "max_rank": 5
+  },
+  {
+    "query": "prayer",
+    "expected_contents": ["🙏 folded hands"],
+    "max_rank": 3
+  },
+  {
+    "query": "puppy",
+    "expected_contents": ["🐶 dog face"],
+    "max_rank": 3
+  },
+  {
+    "query": "kitten",
+    "expected_contents": ["🐱 cat face"],
+    "max_rank": 3
+  },
+  {
+    "query": "pet",
+    "expected_contents": ["🐶 dog face", "🐱 cat face"],
+    "max_rank": 5
+  },
+  {
+    "query": "food",
+    "expected_contents": ["🍕 pizza", "🎂 birthday cake"],
+    "max_rank": 5
+  },
+  {
+    "query": "sport",
+    "expected_contents": ["⚽ soccer ball"],
+    "max_rank": 3
+  },
+  {
+    "query": "grinning",
+    "expected_contents": ["😀 grinning face"],
+    "max_rank": 1
+  },
+  {
+    "query": "tears of joy",
+    "expected_contents": ["😂 face with tears of joy"],
+    "max_rank": 1
+  },
+  {
+    "query": "crying",
+    "expected_contents": ["😢 crying face"],
+    "max_rank": 1
+  },
+  {
+    "query": "sleepy",
+    "expected_contents": ["😴 sleeping face"],
+    "max_rank": 3
+  },
+  {
+    "query": "heart",
+    "expected_contents": ["❤️ red heart"],
+    "max_rank": 1
+  },
+  {
+    "query": "fire",
+    "expected_contents": ["🔥 fire"],
+    "max_rank": 1
+  },
+  {
+    "query": "sparkles",
+    "expected_contents": ["✨ sparkles"],
+    "max_rank": 1
+  },
+  {
+    "query": "party",
+    "expected_contents": ["🎉 party popper"],
+    "max_rank": 1
+  },
+  {
+    "query": "thumbs up",
+    "expected_contents": ["👍 thumbs up"],
+    "max_rank": 1
+  },
+  {
+    "query": "cake",
+    "expected_contents": ["🎂 birthday cake"],
+    "max_rank": 3
+  },
+  {
+    "query": "dog",
+    "expected_contents": ["🐶 dog face"],
+    "max_rank": 1
+  },
+  {
+    "query": "cat",
+    "expected_contents": ["🐱 cat face"],
+    "max_rank": 1
+  },
+  {
+    "query": "🚀",
+    "expected_contents": ["🚀 rocket"],
+    "max_rank": 1
+  },
+  {
+    "query": "❤️",
+    "expected_contents": ["❤️ red heart"],
+    "max_rank": 1
+  }
+]

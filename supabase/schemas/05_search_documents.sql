@@ -10,7 +10,7 @@ create table public.search_documents (
   embedding_384 vector(384),
   embedding_768 vector(768),
   embedding_1536 vector(1536),
-  embedding_3072 vector(3072),
+  embedding_3072 halfvec(3072),
   created_at timestamptz not null default now(),
   unique (search_dataset_id, document_id)
 );

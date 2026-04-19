@@ -48,7 +48,7 @@ create table public.search_documents (
   embedding_384 vector(384),
   embedding_768 vector(768),
   embedding_1536 vector(1536),
-  embedding_3072 vector(3072),
+  embedding_3072 halfvec(3072),
   created_at timestamptz not null default now(),
   unique (search_dataset_id, document_id)
 );
@@ -96,7 +96,7 @@ create index search_documents_search_vector_idx on public.search_documents using
 create index search_documents_embedding_384_idx on public.search_documents using hnsw (embedding_384 vector_cosine_ops) with (m = 16, ef_construction = 64);
 create index search_documents_embedding_768_idx on public.search_documents using hnsw (embedding_768 vector_cosine_ops) with (m = 16, ef_construction = 64);
 create index search_documents_embedding_1536_idx on public.search_documents using hnsw (embedding_1536 vector_cosine_ops) with (m = 16, ef_construction = 64);
-create index search_documents_embedding_3072_idx on public.search_documents using hnsw (embedding_3072 vector_cosine_ops) with (m = 16, ef_construction = 64);
+create index search_documents_embedding_3072_idx on public.search_documents using hnsw (embedding_3072 halfvec_cosine_ops) with (m = 16, ef_construction = 64);
 create index search_documents_search_dataset_id_idx on public.search_documents(search_dataset_id);
 create index search_documents_document_id_idx on public.search_documents(document_id);
 create index validation_sets_search_dataset_id_idx on public.validation_sets(search_dataset_id);

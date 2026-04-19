@@ -174,7 +174,7 @@ $$;
 create or replace function public.match_search_documents_3072(
   p_search_dataset_id uuid,
   p_query text,
-  p_query_embedding vector(3072),
+  p_query_embedding halfvec(3072),
   p_k int default 10
 )
 returns table (

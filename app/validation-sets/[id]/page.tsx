@@ -38,7 +38,7 @@ type ValidationSetDetail = {
 
 const SAMPLE_JSON = `[
   { "query": "cake",  "expected_document_ids": ["<uuid>"], "max_rank": 10 },
-  { "query": "heart", "expected_document_ids": ["<uuid>"], "max_rank": 1 }
+  { "query": "heart", "expected_contents": ["❤️ red heart"], "max_rank": 1 }
 ]`;
 
 export default function ValidationSetPage() {
@@ -238,9 +238,12 @@ export default function ValidationSetPage() {
                 <p className="text-sm text-muted-foreground">
                   Paste an array of{" "}
                   <span className="font-mono">
-                    {"{ query, expected_document_ids, max_rank? }"}
+                    {"{ query, expected_document_ids | expected_contents, max_rank? }"}
                   </span>{" "}
-                  objects. <span className="font-mono">max_rank</span> defaults to 10.
+                  objects. Use <span className="font-mono">expected_document_ids</span> (UUIDs) or{" "}
+                  <span className="font-mono">expected_contents</span> (document{" "}
+                  <span className="font-mono">content</span> strings, resolved against this set&apos;s dataset).{" "}
+                  <span className="font-mono">max_rank</span> defaults to 10.
                 </p>
                 <form onSubmit={handleUpload} className="space-y-3">
                   <textarea

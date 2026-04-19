@@ -12,7 +12,7 @@
 drop function if exists public.match_search_documents_384(uuid, text, vector, int);
 drop function if exists public.match_search_documents_768(uuid, text, vector, int);
 drop function if exists public.match_search_documents_1536(uuid, text, vector, int);
-drop function if exists public.match_search_documents_3072(uuid, text, vector, int);
+drop function if exists public.match_search_documents_3072(uuid, text, halfvec, int);
 
 create or replace function public.match_search_documents_384(
   p_search_dataset_id uuid,
@@ -209,7 +209,7 @@ returns table (
 language sql stable
 as $$
   with q as (
-    select p_query_embedding::vector(3072) as embedding
+    select p_query_embedding::halfvec(3072) as embedding
   ),
   vec as (
     select sd.id, sd.document_id, sd.content, sd.description,
