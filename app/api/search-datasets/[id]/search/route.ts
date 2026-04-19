@@ -1,19 +1,11 @@
 import { NextResponse } from "next/server";
-import { createServerSupabase } from "@/lib/supabase/server";
-import { embedText, type EmbeddingDimension } from "@/lib/llm/embed";
+import {
+  HybridSearchError,
+  loadSearchConfig,
+  runHybridSearch,
+} from "@/lib/search/hybrid-search";
 
 type RouteContext = { params: Promise<{ id: string }> };
-
-const MATCH_FUNCTIONS: Record<EmbeddingDimension, string> = {
-  384: "match_search_documents_384",
-  768: "match_search_documents_768",
-  1536: "match_search_documents_1536",
-  3072: "match_search_documents_3072",
-};
-
-function isEmbeddingDimension(value: unknown): value is EmbeddingDimension {
-  return value === 384 || value === 768 || value === 1536 || value === 3072;
-}
 
 function parseK(raw: string | null): number {
   const parsed = raw ? Number.parseInt(raw, 10) : NaN;
@@ -38,71 +30,29 @@ export async function GET(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Query parameter `q` is required" }, { status: 400 });
   }
 
-  const supabase = createServerSupabase();
-
-  const { data: searchDataset, error: sdError } = await supabase
-    .from("search_datasets")
-    .select("id, embedding_model, embedding_dimension, status")
-    .eq("id", searchDatasetId)
-    .single();
-
-  if (sdError || !searchDataset) {
-    return NextResponse.json(
-      { error: sdError?.message ?? "Search dataset not found" },
-      { status: 404 }
-    );
-  }
-
-  if (!searchDataset.embedding_model || !isEmbeddingDimension(searchDataset.embedding_dimension)) {
-    return NextResponse.json(
-      {
-        error:
-          "embedding_model and a valid embedding_dimension (384, 768, 1536, or 3072) are required on the search dataset",
-      },
-      { status: 400 }
-    );
-  }
-
-  let queryEmbedding: number[];
+  let config;
   try {
-    queryEmbedding = await embedText({
-      input: q,
-      model: searchDataset.embedding_model,
-      dimensions: searchDataset.embedding_dimension,
-    });
+    config = await loadSearchConfig(searchDatasetId);
   } catch (err) {
+    if (err instanceof HybridSearchError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    throw err;
+  }
+
+  let rows;
+  try {
+    rows = await runHybridSearch({ config, query: q, k });
+  } catch (err) {
+    if (err instanceof HybridSearchError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to embed query" },
+      { error: err instanceof Error ? err.message : "Search failed" },
       { status: 500 }
     );
   }
 
-  const rpcName = MATCH_FUNCTIONS[searchDataset.embedding_dimension];
-  // pgvector accepts its text representation "[v1,v2,...]" when passed via PostgREST.
-  const embeddingLiteral = `[${queryEmbedding.join(",")}]`;
-
-  const { data: results, error: rpcError } = await supabase.rpc(rpcName, {
-    p_search_dataset_id: searchDatasetId,
-    p_query: q,
-    p_query_embedding: embeddingLiteral,
-    p_k: k,
-  });
-
-  if (rpcError) {
-    return NextResponse.json({ error: rpcError.message }, { status: 500 });
-  }
-
-  type Row = {
-    id: string;
-    document_id: string;
-    content: string;
-    description: string | null;
-    vector_similarity: number;
-    fts_rank: number;
-    score: number;
-  };
-
-  const rows = (results ?? []) as Row[];
   const formatted = rows.map((row) => ({
     id: row.id,
     document_id: row.document_id,
@@ -117,7 +67,7 @@ export async function GET(request: Request, context: RouteContext) {
   return NextResponse.json({
     query: q,
     k,
-    embedding_dimension: searchDataset.embedding_dimension,
+    embedding_dimension: config.embedding_dimension,
     result_count: formatted.length,
     results: formatted,
   });
