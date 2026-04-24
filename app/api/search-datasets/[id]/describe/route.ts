@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { POSTGREST_MAX_ROWS } from "@/lib/supabase/postgrest-limits";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { describeDocument } from "@/lib/llm/describe";
 
@@ -25,17 +26,73 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 
-  const { data: pending, error: docsError } = await supabase
-    .from("search_documents")
-    .select("id, content")
-    .eq("search_dataset_id", searchDatasetId)
-    .is("description", null);
+  let describedCount = 0;
+  const failures: Array<{ id: string; error: string }> = [];
+  let totalPendingThisRun = 0;
+  let sawAnyPending = false;
+  let prevStuckFirstId: string | null = null;
 
-  if (docsError) {
-    return NextResponse.json({ error: docsError.message }, { status: 500 });
+  while (true) {
+    const { data: pending, error: docsError } = await supabase
+      .from("search_documents")
+      .select("id, content")
+      .eq("search_dataset_id", searchDatasetId)
+      .is("description", null)
+      .order("id", { ascending: true })
+      .limit(POSTGREST_MAX_ROWS);
+
+    if (docsError) {
+      return NextResponse.json({ error: docsError.message }, { status: 500 });
+    }
+
+    if (!pending || pending.length === 0) {
+      break;
+    }
+
+    sawAnyPending = true;
+    totalPendingThisRun += pending.length;
+
+    let batchDescribed = 0;
+    for (const doc of pending) {
+      try {
+        const description = await describeDocument({
+          prompt: searchDataset.description_prompt,
+          content: doc.content,
+          model: searchDataset.description_model,
+        });
+
+        const { error: updateError } = await supabase
+          .from("search_documents")
+          .update({ description })
+          .eq("id", doc.id);
+
+        if (updateError) {
+          failures.push({ id: doc.id, error: updateError.message });
+          continue;
+        }
+
+        describedCount += 1;
+        batchDescribed += 1;
+      } catch (err) {
+        failures.push({ id: doc.id, error: err instanceof Error ? err.message : "Unknown error" });
+      }
+    }
+
+    if (pending.length < POSTGREST_MAX_ROWS) {
+      break;
+    }
+    if (batchDescribed === 0) {
+      const firstId = pending[0].id;
+      if (prevStuckFirstId === firstId) {
+        break;
+      }
+      prevStuckFirstId = firstId;
+    } else {
+      prevStuckFirstId = null;
+    }
   }
 
-  if (!pending || pending.length === 0) {
+  if (!sawAnyPending) {
     if (searchDataset.status !== "described" && searchDataset.status !== "vectorized") {
       await supabase
         .from("search_datasets")
@@ -43,33 +100,6 @@ export async function POST(_request: Request, context: RouteContext) {
         .eq("id", searchDatasetId);
     }
     return NextResponse.json({ described_count: 0, failed_count: 0, total_pending: 0 });
-  }
-
-  let describedCount = 0;
-  const failures: Array<{ id: string; error: string }> = [];
-
-  for (const doc of pending) {
-    try {
-      const description = await describeDocument({
-        prompt: searchDataset.description_prompt,
-        content: doc.content,
-        model: searchDataset.description_model,
-      });
-
-      const { error: updateError } = await supabase
-        .from("search_documents")
-        .update({ description })
-        .eq("id", doc.id);
-
-      if (updateError) {
-        failures.push({ id: doc.id, error: updateError.message });
-        continue;
-      }
-
-      describedCount += 1;
-    } catch (err) {
-      failures.push({ id: doc.id, error: err instanceof Error ? err.message : "Unknown error" });
-    }
   }
 
   if (failures.length === 0) {
@@ -89,7 +119,7 @@ export async function POST(_request: Request, context: RouteContext) {
   return NextResponse.json({
     described_count: describedCount,
     failed_count: failures.length,
-    total_pending: pending.length,
+    total_pending: totalPendingThisRun,
     failures: failures.length > 0 ? failures : undefined,
   });
 }

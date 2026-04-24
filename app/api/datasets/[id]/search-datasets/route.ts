@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { POSTGREST_MAX_ROWS } from "@/lib/supabase/postgrest-limits";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 const EMBEDDING_DIMENSIONS = [384, 768, 1536, 3072] as const;
@@ -85,32 +86,43 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 
-  const { data: documents, error: docsError } = await supabase
-    .from("documents")
-    .select("id, content")
-    .eq("dataset_id", datasetId);
+  const documents: { id: string; content: string }[] = [];
+  for (let from = 0; ; from += POSTGREST_MAX_ROWS) {
+    const to = from + POSTGREST_MAX_ROWS - 1;
+    const { data: page, error: docsError } = await supabase
+      .from("documents")
+      .select("id, content")
+      .eq("dataset_id", datasetId)
+      .order("id", { ascending: true })
+      .range(from, to);
 
-  if (docsError) {
-    return NextResponse.json({ error: docsError.message }, { status: 500 });
+    if (docsError) {
+      return NextResponse.json({ error: docsError.message }, { status: 500 });
+    }
+    const batch = page ?? [];
+    documents.push(...batch);
+    if (batch.length < POSTGREST_MAX_ROWS) break;
   }
 
-  if (documents && documents.length > 0) {
+  if (documents.length > 0) {
     const searchDocuments = documents.map((d) => ({
       search_dataset_id: searchDataset.id,
       document_id: d.id,
       content: d.content,
     }));
 
-    const { error: seedError } = await supabase.from("search_documents").insert(searchDocuments);
-
-    if (seedError) {
-      return NextResponse.json({ error: seedError.message }, { status: 500 });
+    for (let i = 0; i < searchDocuments.length; i += POSTGREST_MAX_ROWS) {
+      const chunk = searchDocuments.slice(i, i + POSTGREST_MAX_ROWS);
+      const { error: seedError } = await supabase.from("search_documents").insert(chunk);
+      if (seedError) {
+        return NextResponse.json({ error: seedError.message }, { status: 500 });
+      }
     }
   }
 
   return NextResponse.json({
     id: searchDataset.id,
     name,
-    document_count: documents?.length ?? 0,
+    document_count: documents.length,
   });
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { POSTGREST_MAX_ROWS } from "@/lib/supabase/postgrest-limits";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 const uploadBodySchema = {
@@ -71,13 +72,12 @@ export async function POST(request: Request) {
     metadata: r.metadata ?? {},
   }));
 
-  const { error: docsError } = await supabase.from("documents").insert(documents);
-
-  if (docsError) {
-    return NextResponse.json(
-      { error: docsError.message },
-      { status: 500 }
-    );
+  for (let i = 0; i < documents.length; i += POSTGREST_MAX_ROWS) {
+    const batch = documents.slice(i, i + POSTGREST_MAX_ROWS);
+    const { error: docsError } = await supabase.from("documents").insert(batch);
+    if (docsError) {
+      return NextResponse.json({ error: docsError.message }, { status: 500 });
+    }
   }
 
   return NextResponse.json({
