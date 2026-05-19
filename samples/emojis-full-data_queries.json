@@ -1,0 +1,288 @@
+[
+  {
+    "query": "rocket",
+    "expected_contents": [
+      "🚀  launch rockets space travel"
+    ],
+    "max_rank": 1
+  },
+  {
+    "query": "pizza",
+    "expected_contents": [
+      "🍕  cheese food hungry pepperoni slice"
+    ],
+    "max_rank": 1
+  },
+  {
+    "query": "laptop",
+    "expected_contents": [
+      "💻  computer office pc personal"
+    ],
+    "max_rank": 1
+  },
+  {
+    "query": "light bulb",
+    "expected_contents": [
+      "💡  bulb comic electric idea light"
+    ],
+    "max_rank": 1
+  },
+  {
+    "query": "soccer ball",
+    "expected_contents": [
+      "⚽  ball football futbol soccer sport"
+    ],
+    "max_rank": 1
+  },
+  {
+    "query": "happy",
+    "expected_contents": [
+      "😀  cheerful cheery face grin grinning happy laugh nice smile smiling teeth",
+      "😂  crying face feels funny haha happy hehe hilarious joy laugh lmao lol rofl roflmao tear"
+    ],
+    "max_rank": 5
+  },
+  {
+    "query": "laughing",
+    "expected_contents": [
+      "😂  crying face feels funny haha happy hehe hilarious joy laugh lmao lol rofl roflmao tear"
+    ],
+    "max_rank": 3
+  },
+  {
+    "query": "sad",
+    "expected_contents": [
+      "😢  awful cry crying face feels miss sad tear triste unhappy",
+      "🥲  face glad grateful happy joy pain proud relieved smile smiley smiling tear touched"
+    ],
+    "max_rank": 5
+  },
+  {
+    "query": "tired",
+    "expected_contents": [
+      "😴  bed bedtime face good goodnight nap night sleep sleeping tired whatever yawn zzz"
+    ],
+    "max_rank": 3
+  },
+  {
+    "query": "thinking",
+    "expected_contents": [
+      "🤔  chin consider face hmm ponder pondering thinking wondering"
+    ],
+    "max_rank": 1
+  },
+  {
+    "query": "love",
+    "expected_contents": [
+      "❤  emotion heart love red"
+    ],
+    "max_rank": 3
+  },
+  {
+    "query": "celebration",
+    "expected_contents": [
+      "🎉  awesome birthday celebrate celebration excited hooray party popper tada woohoo",
+      "🎂  bday birthday cake celebration dessert happy pastry sweet"
+    ],
+    "max_rank": 5
+  },
+  {
+    "query": "birthday",
+    "expected_contents": [
+      "🎂  bday birthday cake celebration dessert happy pastry sweet"
+    ],
+    "max_rank": 1
+  },
+  {
+    "query": "launch",
+    "expected_contents": [
+      "🚀  launch rockets space travel"
+    ],
+    "max_rank": 3
+  },
+  {
+    "query": "idea",
+    "expected_contents": [
+      "💡  bulb comic electric idea light"
+    ],
+    "max_rank": 3
+  },
+  {
+    "query": "computer",
+    "expected_contents": [
+      "💻  computer office pc personal"
+    ],
+    "max_rank": 3
+  },
+  {
+    "query": "hot",
+    "expected_contents": [
+      "🔥  af burn flame hot lit litaf tool"
+    ],
+    "max_rank": 3
+  },
+  {
+    "query": "magic",
+    "expected_contents": [
+      "✨  * magic sparkle star"
+    ],
+    "max_rank": 3
+  },
+  {
+    "query": "approval",
+    "expected_contents": [
+      "👍  +1 good hand like thumb up yes"
+    ],
+    "max_rank": 3
+  },
+  {
+    "query": "thank you",
+    "expected_contents": [
+      "🙏  appreciate ask beg blessed bow cmon five folded gesture hand high please pray thanks thx",
+      "👍  +1 good hand like thumb up yes"
+    ],
+    "max_rank": 5
+  },
+  {
+    "query": "prayer",
+    "expected_contents": [
+      "🙏  appreciate ask beg blessed bow cmon five folded gesture hand high please pray thanks thx"
+    ],
+    "max_rank": 3
+  },
+  {
+    "query": "puppy",
+    "expected_contents": [
+      "🐶  adorbs animal dog face pet puppies puppy"
+    ],
+    "max_rank": 3
+  },
+  {
+    "query": "kitten",
+    "expected_contents": [
+      "🐱  animal cat face kitten kitty pet"
+    ],
+    "max_rank": 3
+  },
+  {
+    "query": "pet",
+    "expected_contents": [
+      "🐶  adorbs animal dog face pet puppies puppy",
+      "🐱  animal cat face kitten kitty pet"
+    ],
+    "max_rank": 5
+  },
+  {
+    "query": "food",
+    "expected_contents": [
+      "🍕  cheese food hungry pepperoni slice",
+      "🎂  bday birthday cake celebration dessert happy pastry sweet"
+    ],
+    "max_rank": 5
+  },
+  {
+    "query": "sport",
+    "expected_contents": [
+      "⚽  ball football futbol soccer sport"
+    ],
+    "max_rank": 3
+  },
+  {
+    "query": "grinning",
+    "expected_contents": [
+      "😀  cheerful cheery face grin grinning happy laugh nice smile smiling teeth"
+    ],
+    "max_rank": 1
+  },
+  {
+    "query": "tears of joy",
+    "expected_contents": [
+      "😂  crying face feels funny haha happy hehe hilarious joy laugh lmao lol rofl roflmao tear"
+    ],
+    "max_rank": 1
+  },
+  {
+    "query": "crying",
+    "expected_contents": [
+      "😢  awful cry crying face feels miss sad tear triste unhappy"
+    ],
+    "max_rank": 1
+  },
+  {
+    "query": "sleepy",
+    "expected_contents": [
+      "😴  bed bedtime face good goodnight nap night sleep sleeping tired whatever yawn zzz"
+    ],
+    "max_rank": 3
+  },
+  {
+    "query": "heart",
+    "expected_contents": [
+      "❤  emotion heart love red"
+    ],
+    "max_rank": 1
+  },
+  {
+    "query": "fire",
+    "expected_contents": [
+      "🔥  af burn flame hot lit litaf tool"
+    ],
+    "max_rank": 1
+  },
+  {
+    "query": "sparkles",
+    "expected_contents": [
+      "✨  * magic sparkle star"
+    ],
+    "max_rank": 1
+  },
+  {
+    "query": "party",
+    "expected_contents": [
+      "🎉  awesome birthday celebrate celebration excited hooray party popper tada woohoo"
+    ],
+    "max_rank": 1
+  },
+  {
+    "query": "thumbs up",
+    "expected_contents": [
+      "👍  +1 good hand like thumb up yes"
+    ],
+    "max_rank": 1
+  },
+  {
+    "query": "cake",
+    "expected_contents": [
+      "🎂  bday birthday cake celebration dessert happy pastry sweet"
+    ],
+    "max_rank": 3
+  },
+  {
+    "query": "dog",
+    "expected_contents": [
+      "🐶  adorbs animal dog face pet puppies puppy"
+    ],
+    "max_rank": 1
+  },
+  {
+    "query": "cat",
+    "expected_contents": [
+      "🐱  animal cat face kitten kitty pet"
+    ],
+    "max_rank": 1
+  },
+  {
+    "query": "🚀",
+    "expected_contents": [
+      "🚀  launch rockets space travel"
+    ],
+    "max_rank": 1
+  },
+  {
+    "query": "❤️",
+    "expected_contents": [
+      "❤  emotion heart love red"
+    ],
+    "max_rank": 1
+  }
+]
