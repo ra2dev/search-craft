@@ -18,7 +18,7 @@
 
 ---
 
-## Implemented ✅ (Slices 1–6)
+## Implemented ✅ (Slices 1–7)
 
 **Conventions:** Server-only Supabase (`lib/supabase/server.ts`). Large datasets batched via `POSTGREST_MAX_ROWS` (1000) in upload, describe, vectorize, and search-document seeding.
 

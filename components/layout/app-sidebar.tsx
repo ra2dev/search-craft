@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Command, Database, Home } from "lucide-react"
+import { Command, Database, Search } from "lucide-react"
 
 import { NavMain } from "@/components/layout/nav-main"
 import { NavUser } from "@/components/layout/nav-user"
@@ -23,16 +23,25 @@ const data = {
   },
   navMain: [
     {
-      title: "Home",
-      url: "/",
-      icon: Home,
-      items: [],
+      title: "Search",
+      url: "/search",
+      icon: Search,
+      isActive: true,
+      items: [
+        {
+          title: "Workspace",
+          url: "/search",
+        },
+        {
+          title: "Compare configs",
+          url: "/search/compare",
+        },
+      ],
     },
     {
       title: "Datasets",
       url: "/datasets",
       icon: Database,
-      isActive: true,
       items: [
         {
           title: "All datasets",
@@ -54,7 +63,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <a href="/">
+              <a href="/search">
                 <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
                   <Command className="size-4" />
                 </div>

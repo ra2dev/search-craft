@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Breadcrumb,
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 
-export default function UploadDatasetPage() {
+function UploadDatasetContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const successCount = searchParams.get("document_count");
@@ -142,5 +142,22 @@ export default function UploadDatasetPage() {
         </div>
       </SidebarInset>
     </SidebarProvider>
+  );
+}
+
+export default function UploadDatasetPage() {
+  return (
+    <Suspense
+      fallback={
+        <SidebarProvider>
+          <AppSidebar />
+          <SidebarInset>
+            <div className="p-4 text-sm text-muted-foreground">Loading…</div>
+          </SidebarInset>
+        </SidebarProvider>
+      }
+    >
+      <UploadDatasetContent />
+    </Suspense>
   );
 }
