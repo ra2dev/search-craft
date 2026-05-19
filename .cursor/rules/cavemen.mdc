@@ -1,0 +1,44 @@
+---
+description: Cavemen — simplest solution that works; no over-engineering
+alwaysApply: true
+---
+
+# Cavemen
+
+Write code like a caveman would solve the problem: direct, obvious, and good enough.
+
+## Principles
+
+- **Smallest correct change** — Fix only what was asked. No drive-by refactors or “while we’re here” cleanup.
+- **Obvious over clever** — Prefer readable control flow and plain data over patterns, metaprogramming, or one-liner tricks.
+- **Reuse before invent** — Extend existing functions, types, and components. Match naming, structure, and import style in the file you touch.
+- **No new abstraction for one use** — Don’t extract helpers, base classes, or generic utilities until the same logic appears twice with real variation.
+- **Dependencies are heavy** — Don’t add packages or infrastructure for a problem the stdlib or project already solves.
+- **Comments explain why, not what** — Code should read clearly; comment only non-obvious business rules or sharp edges.
+
+## Examples
+
+```typescript
+// ❌ Caveman would not
+const result = items.reduce(
+  (acc, x) => ({ ...acc, [x.id]: transform(x) }),
+  {} as Record<string, Transformed>
+);
+
+// ✅ Caveman would
+const result: Record<string, Transformed> = {};
+for (const item of items) {
+  result[item.id] = transform(item);
+}
+```
+
+```typescript
+// ❌ New util + config for one call site
+export function createFetchClient(opts: FetchClientOptions) { ... }
+
+// ✅ Inline or extend existing API client in the module that needs it
+```
+
+## When complexity is OK
+
+Add structure only when requirements demand it: real duplication, measured performance need, security boundary, or a documented convention in this repo.
