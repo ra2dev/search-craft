@@ -3,8 +3,8 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import {
   HybridSearchError,
   loadSearchConfig,
-  runHybridSearch,
-} from "@/lib/search/hybrid-search";
+  runSearch,
+} from "@/lib/search/run-search";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -116,7 +116,8 @@ export async function POST(request: Request, context: RouteContext) {
 
     let results;
     try {
-      results = await runHybridSearch({ config, query: q.query as string, k });
+      const outcome = await runSearch({ config, query: q.query as string, k });
+      results = outcome.results;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Search failed";
       return NextResponse.json({ error: `Query "${q.query}": ${message}` }, { status: 500 });
@@ -173,7 +174,11 @@ export async function POST(request: Request, context: RouteContext) {
     .insert({
       validation_set_id: validationSetId,
       search_dataset_id: searchDatasetId,
-      params: {},
+      params: {
+        rerank_enabled: config.rerank_enabled,
+        rerank_model: config.rerank_model,
+        rerank_candidate_count: config.rerank_candidate_count,
+      },
       metrics: { ...metrics, per_query: perQuery },
     })
     .select("id, run_at")

@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import {
   HybridSearchError,
   loadSearchConfig,
-  runHybridSearch,
-} from "@/lib/search/hybrid-search";
+  runSearch,
+} from "@/lib/search/run-search";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -40,9 +40,9 @@ export async function GET(request: Request, context: RouteContext) {
     throw err;
   }
 
-  let rows;
+  let outcome;
   try {
-    rows = await runHybridSearch({ config, query: q, k });
+    outcome = await runSearch({ config, query: q, k });
   } catch (err) {
     if (err instanceof HybridSearchError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
@@ -53,7 +53,7 @@ export async function GET(request: Request, context: RouteContext) {
     );
   }
 
-  const formatted = rows.map((row) => ({
+  const formatted = outcome.results.map((row) => ({
     id: row.id,
     document_id: row.document_id,
     content: row.content,
@@ -62,6 +62,13 @@ export async function GET(request: Request, context: RouteContext) {
     vector_similarity: row.vector_similarity,
     fts_rank: row.fts_rank,
     score: row.score,
+    ...(row.rerank_rank != null
+      ? {
+          rerank_rank: row.rerank_rank,
+          rerank_score: row.rerank_score,
+          original_rank: row.original_rank,
+        }
+      : {}),
   }));
 
   return NextResponse.json({
@@ -69,6 +76,7 @@ export async function GET(request: Request, context: RouteContext) {
     k,
     embedding_dimension: config.embedding_dimension,
     result_count: formatted.length,
+    rerank: outcome.rerank,
     results: formatted,
   });
 }

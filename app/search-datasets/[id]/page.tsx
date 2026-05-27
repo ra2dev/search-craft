@@ -30,6 +30,9 @@ type SearchDatasetDetail = {
   description_model: string | null;
   embedding_model: string | null;
   embedding_dimension: number | null;
+  rerank_enabled: boolean;
+  rerank_model: string | null;
+  rerank_candidate_count: number;
   status: string;
   created_at: string;
   document_count: number;
@@ -72,6 +75,16 @@ type SearchResultItem = {
   vector_similarity: number;
   fts_rank: number;
   score: number;
+  rerank_rank?: number;
+  rerank_score?: number;
+  original_rank?: number;
+};
+
+type SearchRerankMeta = {
+  enabled: boolean;
+  model: string | null;
+  candidate_count: number;
+  fallback_used?: boolean;
 };
 
 type SearchResponse = {
@@ -79,6 +92,7 @@ type SearchResponse = {
   k: number;
   embedding_dimension: number;
   result_count: number;
+  rerank: SearchRerankMeta;
   results: SearchResultItem[];
 };
 
@@ -147,6 +161,11 @@ export default function SearchDatasetDetailPage() {
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searchResponse, setSearchResponse] = useState<SearchResponse | null>(null);
+  const [rerankEnabled, setRerankEnabled] = useState(false);
+  const [rerankModel, setRerankModel] = useState("gpt-4o-mini");
+  const [rerankCandidates, setRerankCandidates] = useState(50);
+  const [savingRerank, setSavingRerank] = useState(false);
+  const [rerankSaveError, setRerankSaveError] = useState<string | null>(null);
 
   const [validationSets, setValidationSets] = useState<ValidationSetSummary[]>([]);
   const [selectedValidationSetId, setSelectedValidationSetId] = useState<string>("");
@@ -182,6 +201,13 @@ export default function SearchDatasetDetailPage() {
   useEffect(() => {
     Promise.all([loadDetail(), loadDocuments()]).finally(() => setLoading(false));
   }, [loadDetail, loadDocuments]);
+
+  useEffect(() => {
+    if (!detail) return;
+    setRerankEnabled(detail.rerank_enabled);
+    setRerankModel(detail.rerank_model ?? "gpt-4o-mini");
+    setRerankCandidates(detail.rerank_candidate_count ?? 50);
+  }, [detail]);
 
   useEffect(() => {
     loadValidationHistory();
@@ -288,6 +314,37 @@ export default function SearchDatasetDetailPage() {
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Failed to delete");
       setDeleting(false);
+    }
+  }
+
+  async function handleSaveRerank(e: React.FormEvent) {
+    e.preventDefault();
+    if (rerankEnabled && !rerankModel.trim()) {
+      setRerankSaveError("Rerank model is required when rerank is enabled");
+      return;
+    }
+    setSavingRerank(true);
+    setRerankSaveError(null);
+    try {
+      const res = await fetch(`/api/search-datasets/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rerank_enabled: rerankEnabled,
+          rerank_model: rerankEnabled ? rerankModel.trim() : null,
+          rerank_candidate_count: rerankCandidates,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setRerankSaveError(data.error ?? "Failed to save rerank settings");
+        return;
+      }
+      await loadDetail();
+    } catch {
+      setRerankSaveError("Network error");
+    } finally {
+      setSavingRerank(false);
     }
   }
 
@@ -409,7 +466,69 @@ export default function SearchDatasetDetailPage() {
                     {detail.described_count} / {detail.document_count} described ·{" "}
                     {detail.vectorized_count} / {detail.document_count} vectorized
                   </dd>
+                  <dt className="text-muted-foreground">Rerank</dt>
+                  <dd>
+                    {detail.rerank_enabled ? (
+                      <>
+                        on · <span className="font-mono">{detail.rerank_model}</span> ·{" "}
+                        {detail.rerank_candidate_count} candidates
+                      </>
+                    ) : (
+                      <em className="text-muted-foreground">off</em>
+                    )}
+                  </dd>
                 </dl>
+              </section>
+
+              <section className="space-y-3">
+                <h2 className="text-lg font-semibold">Rerank settings</h2>
+                <form onSubmit={handleSaveRerank} className="flex max-w-md flex-col gap-3">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={rerankEnabled}
+                      onChange={(e) => setRerankEnabled(e.target.checked)}
+                    />
+                    Enable LLM rerank
+                  </label>
+                  {rerankEnabled && (
+                    <>
+                      <div className="space-y-1">
+                        <label htmlFor="rerankModel" className="text-sm font-medium">
+                          Rerank model
+                        </label>
+                        <Input
+                          id="rerankModel"
+                          value={rerankModel}
+                          onChange={(e) => setRerankModel(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label htmlFor="rerankCandidates" className="text-sm font-medium">
+                          Candidate count
+                        </label>
+                        <Input
+                          id="rerankCandidates"
+                          type="number"
+                          min={1}
+                          max={100}
+                          value={rerankCandidates}
+                          onChange={(e) =>
+                            setRerankCandidates(
+                              Math.max(1, Math.min(100, Number(e.target.value) || 50))
+                            )
+                          }
+                        />
+                      </div>
+                    </>
+                  )}
+                  {rerankSaveError && (
+                    <p className="text-sm text-destructive">{rerankSaveError}</p>
+                  )}
+                  <Button type="submit" size="sm" disabled={savingRerank}>
+                    {savingRerank ? "Saving…" : "Save rerank settings"}
+                  </Button>
+                </form>
               </section>
 
               <section className="space-y-3">
@@ -505,6 +624,13 @@ export default function SearchDatasetDetailPage() {
                     Hybrid search: embeds your query with{" "}
                     <span className="font-mono">{detail.embedding_model}</span> and combines vector
                     similarity with full-text search using reciprocal rank fusion.
+                    {detail.rerank_enabled && (
+                      <>
+                        {" "}
+                        Then an LLM reranks up to {detail.rerank_candidate_count} candidates with{" "}
+                        <span className="font-mono">{detail.rerank_model}</span>.
+                      </>
+                    )}
                   </p>
                 )}
                 <form onSubmit={handleRunSearch} className="flex flex-wrap items-center gap-2">
@@ -543,6 +669,14 @@ export default function SearchDatasetDetailPage() {
                         : `Top ${searchResponse.result_count} result${
                             searchResponse.result_count === 1 ? "" : "s"
                           } for “${searchResponse.query}”`}
+                      {searchResponse.rerank.enabled && (
+                        <>
+                          {" "}
+                          · rerank {searchResponse.rerank.model} (
+                          {searchResponse.rerank.candidate_count} candidates
+                          {searchResponse.rerank.fallback_used ? ", hybrid fallback" : ""})
+                        </>
+                      )}
                     </p>
                     {searchResponse.results.length > 0 && (
                       <ol className="space-y-2">
@@ -556,8 +690,17 @@ export default function SearchDatasetDetailPage() {
                                 #{idx + 1} · doc {r.document_id.slice(0, 8)}
                               </span>
                               <span className="font-mono">
-                                score {r.score.toFixed(4)} · vec {r.vector_similarity.toFixed(3)} ·
-                                fts {r.fts_rank.toFixed(3)}
+                                {r.rerank_rank != null ? (
+                                  <>
+                                    rerank {r.rerank_score?.toFixed(4)} (was #{r.original_rank}) ·
+                                    hybrid {r.score.toFixed(4)}
+                                  </>
+                                ) : (
+                                  <>
+                                    score {r.score.toFixed(4)} · vec {r.vector_similarity.toFixed(3)}{" "}
+                                    · fts {r.fts_rank.toFixed(3)}
+                                  </>
+                                )}
                               </span>
                             </div>
                             <div className="whitespace-pre-wrap break-words">{r.snippet}</div>

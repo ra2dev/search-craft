@@ -24,6 +24,7 @@ type SearchConfigRow = {
   dataset_name: string;
   status: string;
   embedding_dimension: number | null;
+  rerank_enabled: boolean;
   document_count: number;
   vectorized_count: number;
   latest_validation: LatestValidation | null;
@@ -40,15 +41,12 @@ export async function GET(request: Request) {
   let configsQuery = supabase
     .from("search_datasets")
     .select(
-      "id, name, dataset_id, status, embedding_dimension, datasets!inner(name)"
+      "id, name, dataset_id, status, embedding_dimension, rerank_enabled, datasets!inner(name)"
     )
     .order("name", { ascending: true });
 
   if (datasetId) {
     configsQuery = configsQuery.eq("dataset_id", datasetId);
-  }
-  if (!includePending) {
-    configsQuery = configsQuery.eq("status", "vectorized");
   }
 
   const { data: rawConfigs, error: configsError } = await configsQuery;
@@ -62,6 +60,7 @@ export async function GET(request: Request) {
     dataset_id: string;
     status: string;
     embedding_dimension: number | null;
+    rerank_enabled: boolean;
     datasets: { name: string } | { name: string }[] | null;
   };
 
@@ -180,6 +179,7 @@ export async function GET(request: Request) {
       dataset_name: datasetName,
       status: c.status,
       embedding_dimension: c.embedding_dimension,
+      rerank_enabled: c.rerank_enabled === true,
       document_count: documentCount,
       vectorized_count: vectorizedCount,
       latest_validation: latestByConfig.get(c.id) ?? null,

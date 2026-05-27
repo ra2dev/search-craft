@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { normalizeRerankCandidateCount } from "@/lib/llm/rerank";
 import { POSTGREST_MAX_ROWS } from "@/lib/supabase/postgrest-limits";
 import { createServerSupabase } from "@/lib/supabase/server";
 
@@ -12,7 +13,9 @@ export async function GET(_request: Request, context: RouteContext) {
 
   const { data, error } = await supabase
     .from("search_datasets")
-    .select("id, name, description_prompt, description_model, embedding_model, embedding_dimension, status, created_at")
+    .select(
+      "id, name, description_prompt, description_model, embedding_model, embedding_dimension, rerank_enabled, rerank_model, rerank_candidate_count, status, created_at"
+    )
     .eq("dataset_id", datasetId)
     .order("created_at", { ascending: false });
 
@@ -53,6 +56,20 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 
+  const rerank_enabled = o.rerank_enabled === true;
+  const rerank_model =
+    typeof o.rerank_model === "string" && o.rerank_model.trim()
+      ? o.rerank_model.trim()
+      : null;
+  const rerank_candidate_count = normalizeRerankCandidateCount(o.rerank_candidate_count);
+
+  if (rerank_enabled && !rerank_model) {
+    return NextResponse.json(
+      { error: "rerank_model is required when rerank is enabled" },
+      { status: 400 }
+    );
+  }
+
   const supabase = createServerSupabase();
 
   const { data: dataset, error: datasetError } = await supabase
@@ -74,6 +91,9 @@ export async function POST(request: Request, context: RouteContext) {
       description_model,
       embedding_model,
       embedding_dimension,
+      rerank_enabled,
+      rerank_model: rerank_enabled ? rerank_model : null,
+      rerank_candidate_count,
       status: "uploaded",
     })
     .select("id")

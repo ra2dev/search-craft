@@ -32,10 +32,6 @@ const data = {
           title: "Workspace",
           url: "/search",
         },
-        {
-          title: "Compare configs",
-          url: "/search/compare",
-        },
       ],
     },
     {

@@ -1,4 +1,5 @@
 import { embedText, type EmbeddingDimension } from "@/lib/llm/embed";
+import { normalizeRerankCandidateCount } from "@/lib/llm/rerank";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 const MATCH_FUNCTIONS: Record<EmbeddingDimension, string> = {
@@ -26,6 +27,9 @@ export type HybridSearchConfig = {
   id: string;
   embedding_model: string;
   embedding_dimension: EmbeddingDimension;
+  rerank_enabled: boolean;
+  rerank_model: string | null;
+  rerank_candidate_count: number;
 };
 
 export class HybridSearchError extends Error {
@@ -40,7 +44,9 @@ export async function loadSearchConfig(searchDatasetId: string): Promise<HybridS
   const supabase = createServerSupabase();
   const { data, error } = await supabase
     .from("search_datasets")
-    .select("id, embedding_model, embedding_dimension")
+    .select(
+      "id, embedding_model, embedding_dimension, rerank_enabled, rerank_model, rerank_candidate_count"
+    )
     .eq("id", searchDatasetId)
     .single();
 
@@ -57,6 +63,9 @@ export async function loadSearchConfig(searchDatasetId: string): Promise<HybridS
     id: data.id,
     embedding_model: data.embedding_model,
     embedding_dimension: data.embedding_dimension,
+    rerank_enabled: data.rerank_enabled === true,
+    rerank_model: data.rerank_model ?? null,
+    rerank_candidate_count: normalizeRerankCandidateCount(data.rerank_candidate_count),
   };
 }
 

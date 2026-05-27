@@ -13,8 +13,6 @@ import {
 } from "@/components/ui/sidebar";
 
 const CONFIG_STORAGE_KEY = "search-workspace-config-id";
-const RUN_VALIDATION_SET_STORAGE_KEY = "search-workspace-run-validation-set-id";
-const MRR_FILTER_STORAGE_KEY = "search-workspace-mrr-filter-set-id";
 
 type SearchConfig = {
   id: string;
@@ -23,6 +21,7 @@ type SearchConfig = {
   dataset_name: string;
   status: string;
   embedding_dimension: number | null;
+  rerank_enabled: boolean;
   document_count: number;
   vectorized_count: number;
   latest_validation: {
@@ -44,6 +43,16 @@ type SearchResultItem = {
   vector_similarity: number;
   fts_rank: number;
   score: number;
+  rerank_rank?: number;
+  rerank_score?: number;
+  original_rank?: number;
+};
+
+type SearchRerankMeta = {
+  enabled: boolean;
+  model: string | null;
+  candidate_count: number;
+  fallback_used?: boolean;
 };
 
 type SearchResponse = {
@@ -51,26 +60,8 @@ type SearchResponse = {
   k: number;
   embedding_dimension: number;
   result_count: number;
+  rerank: SearchRerankMeta;
   results: SearchResultItem[];
-};
-
-type ValidationSetSummary = {
-  id: string;
-  name: string;
-  query_count: number;
-};
-
-type ValidationRunMetrics = {
-  total_queries: number;
-  pass_rate: number;
-  recall_at_max_rank: number;
-  mrr: number;
-};
-
-type ValidationRunResponse = {
-  run_id: string;
-  run_at: string;
-  metrics: ValidationRunMetrics;
 };
 
 function formatMrr(mrr: number | null | undefined): string {
@@ -88,8 +79,6 @@ export default function SearchWorkspacePage() {
   const [loadingConfigs, setLoadingConfigs] = useState(true);
   const [configsError, setConfigsError] = useState<string | null>(null);
   const [activeConfigId, setActiveConfigId] = useState<string>("");
-  const [mrrFilterSetId, setMrrFilterSetId] = useState<string>("");
-  const [runValidationSetId, setRunValidationSetId] = useState<string>("");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchK, setSearchK] = useState(10);
@@ -97,20 +86,12 @@ export default function SearchWorkspacePage() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searchResponse, setSearchResponse] = useState<SearchResponse | null>(null);
 
-  const [validationSets, setValidationSets] = useState<ValidationSetSummary[]>([]);
-  const [runningValidation, setRunningValidation] = useState(false);
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const [validationRun, setValidationRun] = useState<ValidationRunResponse | null>(null);
-
   const activeConfig = configs.find((c) => c.id === activeConfigId) ?? null;
 
   const loadConfigs = useCallback(() => {
     setLoadingConfigs(true);
     setConfigsError(null);
-    const params = new URLSearchParams();
-    if (mrrFilterSetId) params.set("validation_set_id", mrrFilterSetId);
-    const qs = params.toString();
-    return fetch(`/api/search-configs${qs ? `?${qs}` : ""}`)
+    return fetch("/api/search-configs")
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(res.statusText))))
       .then((data: SearchConfig[]) => {
         setConfigs(data ?? []);
@@ -122,7 +103,7 @@ export default function SearchWorkspacePage() {
         return [] as SearchConfig[];
       })
       .finally(() => setLoadingConfigs(false));
-  }, [mrrFilterSetId]);
+  }, []);
 
   useEffect(() => {
     loadConfigs().then((data) => {
@@ -143,39 +124,6 @@ export default function SearchWorkspacePage() {
     if (!activeConfigId) return;
     localStorage.setItem(CONFIG_STORAGE_KEY, activeConfigId);
   }, [activeConfigId]);
-
-  useEffect(() => {
-    if (!activeConfig?.dataset_id) {
-      setValidationSets([]);
-      return;
-    }
-    fetch(`/api/datasets/${activeConfig.dataset_id}/validation-sets`)
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: ValidationSetSummary[]) => {
-        setValidationSets(data ?? []);
-        const storedRun = localStorage.getItem(RUN_VALIDATION_SET_STORAGE_KEY);
-        setRunValidationSetId((prev) => {
-          if (prev && data?.some((s) => s.id === prev)) return prev;
-          if (storedRun && data?.some((s) => s.id === storedRun)) return storedRun;
-          return data?.[0]?.id ?? "";
-        });
-        const storedFilter = localStorage.getItem(MRR_FILTER_STORAGE_KEY);
-        if (storedFilter && data?.some((s) => s.id === storedFilter)) {
-          setMrrFilterSetId(storedFilter);
-        }
-      })
-      .catch(() => setValidationSets([]));
-  }, [activeConfig?.dataset_id]);
-
-  useEffect(() => {
-    if (runValidationSetId) {
-      localStorage.setItem(RUN_VALIDATION_SET_STORAGE_KEY, runValidationSetId);
-    }
-  }, [runValidationSetId]);
-
-  useEffect(() => {
-    localStorage.setItem(MRR_FILTER_STORAGE_KEY, mrrFilterSetId);
-  }, [mrrFilterSetId]);
 
   async function handleRunSearch(event?: React.FormEvent) {
     event?.preventDefault();
@@ -209,37 +157,6 @@ export default function SearchWorkspacePage() {
     }
   }
 
-  async function handleRunValidation(e?: React.FormEvent) {
-    e?.preventDefault();
-    if (!activeConfigId) return;
-    const setId = runValidationSetId;
-    if (!setId) {
-      setValidationError("Select a validation set first.");
-      return;
-    }
-    setRunningValidation(true);
-    setValidationError(null);
-    setValidationRun(null);
-    try {
-      const res = await fetch(`/api/search-datasets/${activeConfigId}/validate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ validation_set_id: setId }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setValidationError(data.error ?? "Validation failed");
-        return;
-      }
-      setValidationRun(data as ValidationRunResponse);
-      await loadConfigs();
-    } catch {
-      setValidationError("Network error");
-    } finally {
-      setRunningValidation(false);
-    }
-  }
-
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -256,32 +173,6 @@ export default function SearchWorkspacePage() {
         </header>
         <div className="flex flex-1 flex-col gap-6 p-4 pt-0 lg:flex-row">
           <section className="space-y-3 lg:w-[min(100%,28rem)] lg:shrink-0">
-            <div className="flex items-center justify-between gap-2">
-              <h1 className="text-lg font-semibold">Configs</h1>
-              <Link
-                href="/search/compare"
-                className="text-xs text-muted-foreground underline underline-offset-2"
-              >
-                Compare
-              </Link>
-            </div>
-            {validationSets.length > 0 && (
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-muted-foreground">Validation set (MRR filter)</span>
-                <select
-                  className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
-                  value={mrrFilterSetId}
-                  onChange={(e) => setMrrFilterSetId(e.target.value)}
-                >
-                  <option value="">Latest run (any set)</option>
-                  {validationSets.map((vs) => (
-                    <option key={vs.id} value={vs.id}>
-                      {vs.name} ({vs.query_count})
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
             {loadingConfigs && (
               <p className="text-sm text-muted-foreground">Loading configs…</p>
             )}
@@ -322,7 +213,6 @@ export default function SearchWorkspacePage() {
                           onClick={() => {
                             setActiveConfigId(c.id);
                             setSearchResponse(null);
-                            setValidationRun(null);
                           }}
                         >
                           <td className="px-2 py-2 text-xs">{c.dataset_name}</td>
@@ -353,8 +243,13 @@ export default function SearchWorkspacePage() {
                   <div>
                     <h2 className="text-lg font-semibold">{activeConfig.name}</h2>
                     <p className="text-sm text-muted-foreground">
-                      {activeConfig.dataset_name} · {activeConfig.vectorized_count} vectorized
-                      docs
+                      {activeConfig.dataset_name} · {activeConfig.vectorized_count}{" "}
+                      vectorized docs
+                      {activeConfig.rerank_enabled && (
+                        <span className="ml-2 rounded border px-1.5 py-0.5 text-xs">
+                          rerank on
+                        </span>
+                      )}
                     </p>
                   </div>
                   {activeConfig.latest_validation && (
@@ -416,6 +311,14 @@ export default function SearchWorkspacePage() {
                       {searchResponse.result_count === 0
                         ? "No results."
                         : `Top ${searchResponse.result_count} for “${searchResponse.query}”`}
+                      {searchResponse.rerank.enabled && (
+                        <>
+                          {" "}
+                          · rerank {searchResponse.rerank.model} (
+                          {searchResponse.rerank.candidate_count} candidates
+                          {searchResponse.rerank.fallback_used ? ", hybrid fallback" : ""})
+                        </>
+                      )}
                     </p>
                     <ol className="space-y-2">
                       {searchResponse.results.map((r, idx) => (
@@ -425,8 +328,17 @@ export default function SearchWorkspacePage() {
                               #{idx + 1} · doc {r.document_id.slice(0, 8)}
                             </span>
                             <span className="font-mono">
-                              score {r.score.toFixed(4)} · vec{" "}
-                              {r.vector_similarity.toFixed(3)} · fts {r.fts_rank.toFixed(3)}
+                              {r.rerank_rank != null ? (
+                                <>
+                                  rerank {r.rerank_score?.toFixed(4)} (was #{r.original_rank}) ·
+                                  hybrid {r.score.toFixed(4)}
+                                </>
+                              ) : (
+                                <>
+                                  score {r.score.toFixed(4)} · vec{" "}
+                                  {r.vector_similarity.toFixed(3)} · fts {r.fts_rank.toFixed(3)}
+                                </>
+                              )}
                             </span>
                           </div>
                           <div className="whitespace-pre-wrap break-words">{r.snippet}</div>
@@ -435,72 +347,6 @@ export default function SearchWorkspacePage() {
                     </ol>
                   </div>
                 )}
-
-                <div className="border-t pt-4 space-y-3">
-                  <h3 className="text-sm font-medium">Validation</h3>
-                  {validationSets.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No validation sets on this dataset.{" "}
-                      <Link
-                        href={`/datasets/${activeConfig.dataset_id}`}
-                        className="underline underline-offset-2"
-                      >
-                        Create one
-                      </Link>
-                      .
-                    </p>
-                  ) : (
-                    <form
-                      onSubmit={handleRunValidation}
-                      className="flex flex-wrap items-center gap-2"
-                    >
-                      <select
-                        className="flex h-9 min-w-48 rounded-md border border-input bg-background px-3 py-1 text-sm"
-                        value={runValidationSetId}
-                        onChange={(e) => setRunValidationSetId(e.target.value)}
-                        disabled={runningValidation}
-                      >
-                        {validationSets.map((vs) => (
-                          <option key={vs.id} value={vs.id}>
-                            {vs.name} ({vs.query_count})
-                          </option>
-                        ))}
-                      </select>
-                      <Button type="submit" disabled={!runValidationSetId || runningValidation}>
-                        {runningValidation ? "Running…" : "Run validation"}
-                      </Button>
-                    </form>
-                  )}
-                  {validationError && (
-                    <p className="text-sm text-destructive">{validationError}</p>
-                  )}
-                  {validationRun && (
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-md border p-3 text-sm sm:grid-cols-4">
-                      <div>
-                        <div className="text-xs text-muted-foreground">Queries</div>
-                        <div className="font-mono">{validationRun.metrics.total_queries}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Pass rate</div>
-                        <div className="font-mono">
-                          {formatPct(validationRun.metrics.pass_rate)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Recall@max_rank</div>
-                        <div className="font-mono">
-                          {formatPct(validationRun.metrics.recall_at_max_rank)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">MRR</div>
-                        <div className="font-mono">
-                          {formatMrr(validationRun.metrics.mrr)}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
               </>
             )}
           </section>

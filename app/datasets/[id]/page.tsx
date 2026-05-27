@@ -88,6 +88,9 @@ export default function DatasetDetailPage() {
   const [formDescModel, setFormDescModel] = useState("gpt-4o-mini");
   const [formEmbedModel, setFormEmbedModel] = useState("text-embedding-3-small");
   const [formDimension, setFormDimension] = useState<number>(1536);
+  const [formRerankEnabled, setFormRerankEnabled] = useState(false);
+  const [formRerankModel, setFormRerankModel] = useState("gpt-4o-mini");
+  const [formRerankCandidates, setFormRerankCandidates] = useState(50);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -214,6 +217,10 @@ export default function DatasetDetailPage() {
       setFormError("Embedding model is required");
       return;
     }
+    if (formRerankEnabled && !formRerankModel.trim()) {
+      setFormError("Rerank model is required when rerank is enabled");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch(`/api/datasets/${id}/search-datasets`, {
@@ -225,6 +232,9 @@ export default function DatasetDetailPage() {
           description_model: formDescModel.trim() || undefined,
           embedding_model: formEmbedModel.trim(),
           embedding_dimension: formDimension,
+          rerank_enabled: formRerankEnabled,
+          rerank_model: formRerankEnabled ? formRerankModel.trim() : undefined,
+          rerank_candidate_count: formRerankCandidates,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -237,6 +247,9 @@ export default function DatasetDetailPage() {
       setFormDescModel("");
       setFormEmbedModel("");
       setFormDimension(1536);
+      setFormRerankEnabled(false);
+      setFormRerankModel("gpt-4o-mini");
+      setFormRerankCandidates(50);
       fetchSearchDatasets();
     } catch {
       setFormError("Network error");
@@ -470,6 +483,44 @@ export default function DatasetDetailPage() {
                           ))}
                         </select>
                       </div>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={formRerankEnabled}
+                          onChange={(e) => setFormRerankEnabled(e.target.checked)}
+                        />
+                        Enable LLM rerank
+                      </label>
+                      {formRerankEnabled && (
+                        <>
+                          <div className="space-y-1">
+                            <label htmlFor="rerankModel" className="text-sm font-medium">Rerank model</label>
+                            <Input
+                              id="rerankModel"
+                              value={formRerankModel}
+                              onChange={(e) => setFormRerankModel(e.target.value)}
+                              placeholder="e.g. gpt-4o-mini"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label htmlFor="rerankCandidates" className="text-sm font-medium">
+                              Rerank candidate count
+                            </label>
+                            <Input
+                              id="rerankCandidates"
+                              type="number"
+                              min={1}
+                              max={100}
+                              value={formRerankCandidates}
+                              onChange={(e) =>
+                                setFormRerankCandidates(
+                                  Math.max(1, Math.min(100, Number(e.target.value) || 50))
+                                )
+                              }
+                            />
+                          </div>
+                        </>
+                      )}
                       {formError && <p className="text-sm text-destructive">{formError}</p>}
                       <Button type="submit" disabled={submitting}>
                         {submitting ? "Creating…" : "Create search config"}
